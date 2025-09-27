@@ -1,0 +1,378 @@
+@page "/debrief/{sessionId:int}"
+@using Microsoft.AspNetCore.Components
+@using Microsoft.EntityFrameworkCore
+@using PilotSim.Data
+@using PilotSim.Data.Models
+@using System.Text.Json
+@inject NavigationManager Navigation
+@inject SimDbContext DbContext
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Session Debrief - TrainMeATC</PageTitle>
+
+<div class="container-fluid py-4">
+    @if (session == null)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p>Loading session data...</p>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1>Session Debrief</h1>
+                    <div>
+                        <button class="btn btn-secondary me-2" @onclick="GoToScenarios">
+                            <i class="bi bi-arrow-left me-2"></i>New Session
+                        </button>
+                        <button class="btn btn-primary" @onclick="GoHome">
+                            <i class="bi bi-house me-2"></i>Home
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Session Summary -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Session Summary</h5>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <strong>Scenario:</strong><br>
+                                <span class="text-muted">@(session.Scenario?.Name ?? "Unknown")</span>
+                            </div>
+                            <div class="col-md-3">
+                                <strong>Airport:</strong><br>
+                                <span class="text-muted">@(session.Scenario?.AirportIcao ?? "Unknown")</span>
+                            </div>
+                            <div class="col-md-3">
+                                <strong>Duration:</strong><br>
+                                <span class="text-muted">@GetSessionDuration()</span>
+                            </div>
+                            <div class="col-md-3">
+                                <strong>Final Score:</strong><br>
+                                <span class="text-muted h5">@session.ScoreTotal</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Metrics -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Total Turns</h5>
+                        <div class="h2 text-primary">@turns.Count</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Average Score</h5>
+                        <div class="h2 text-success">@GetAverageScore()</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Corrections</h5>
+                        <div class="h2 text-warning">@GetCorrectionCount()</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Turn Timeline -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Communication Timeline</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (!turns.Any())
+                        {
+                            <p class="text-muted">No communication turns recorded for this session.</p>
+                        }
+                        else
+                        {
+                            <div class="timeline">
+                                @foreach (var turn in turns.OrderBy(t => t.Idx))
+                                {
+                                    <div class="timeline-item border-bottom pb-3 mb-3">
+                                        <div class="row">
+                                            <div class="col-1">
+                                                <div class="timeline-marker">
+                                                    <span class="badge bg-primary">#@turn.Idx</span>
+                                                </div>
+                                            </div>
+                                            <div class="col-11">
+                                                <!-- Pilot Transmission -->
+                                                <div class="card mb-2">
+                                                    <div class="card-body">
+                                                        <div class="d-flex justify-content-between align-items-start">
+                                                            <div>
+                                                                <h6 class="text-primary mb-1">
+                                                                    <i class="bi bi-person me-2"></i>Pilot
+                                                                </h6>
+                                                                <p class="mb-0">@(turn.UserTranscript ?? "No transcript available")</p>
+                                                            </div>
+                                                            @if (!string.IsNullOrEmpty(turn.UserAudioPath))
+                                                            {
+                                                                <button class="btn btn-outline-primary btn-sm" 
+                                                                        @onclick="() => PlayAudio(turn.UserAudioPath!)">
+                                                                    <i class="bi bi-play"></i>
+                                                                </button>
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Instructor Feedback -->
+                                                @if (!string.IsNullOrEmpty(turn.InstructorJson))
+                                                {
+                                                    var feedback = GetInstructorFeedback(turn.InstructorJson);
+                                                    <div class="card mb-2 border-warning">
+                                                        <div class="card-body">
+                                                            <h6 class="text-warning mb-1">
+                                                                <i class="bi bi-person-check me-2"></i>Instructor Feedback
+                                                            </h6>
+                                                            @if (!string.IsNullOrEmpty(feedback))
+                                                            {
+                                                                <p class="mb-0 small">@feedback</p>
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                }
+
+                                                <!-- ATC Response -->
+                                                @if (!string.IsNullOrEmpty(turn.AtcJson))
+                                                {
+                                                    var atcResponse = GetAtcResponse(turn.AtcJson);
+                                                    <div class="card border-success">
+                                                        <div class="card-body">
+                                                            <div class="d-flex justify-content-between align-items-start">
+                                                                <div>
+                                                                    <h6 class="text-success mb-1">
+                                                                        <i class="bi bi-tower me-2"></i>ATC Response
+                                                                    </h6>
+                                                                    <p class="mb-0">@atcResponse</p>
+                                                                </div>
+                                                                @if (!string.IsNullOrEmpty(turn.TtsAudioPath))
+                                                                {
+                                                                    <button class="btn btn-outline-success btn-sm" 
+                                                                            @onclick="() => PlayAudio(turn.TtsAudioPath!)">
+                                                                        <i class="bi bi-play"></i>
+                                                                    </button>
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Study Resources -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Study Resources</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <h6>Official Publications</h6>
+                                <ul class="list-unstyled">
+                                    <li>
+                                        <a href="https://www.casa.gov.au/aip" target="_blank" class="text-decoration-none">
+                                            <i class="bi bi-book me-2"></i>AIP Australia
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="https://www.casa.gov.au/" target="_blank" class="text-decoration-none">
+                                            <i class="bi bi-building me-2"></i>CASA Publications
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="col-md-4">
+                                <h6>Training Materials</h6>
+                                <ul class="list-unstyled">
+                                    <li>
+                                        <i class="bi bi-mic me-2"></i>Standard Phraseology Guide
+                                    </li>
+                                    <li>
+                                        <i class="bi bi-headphones me-2"></i>Radio Communication Procedures
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="col-md-4">
+                                <h6>Practice Tips</h6>
+                                <ul class="list-unstyled">
+                                    <li>
+                                        <i class="bi bi-check2 me-2"></i>Speak clearly and concisely
+                                    </li>
+                                    <li>
+                                        <i class="bi bi-check2 me-2"></i>Use standard phraseology
+                                    </li>
+                                    <li>
+                                        <i class="bi bi-check2 me-2"></i>Repeat back all instructions
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Audio element for playback -->
+<audio id="debrief-audio" preload="none"></audio>
+
+@code {
+    [Parameter] public int SessionId { get; set; }
+    
+    private Session? session;
+    private List<Turn> turns = new();
+    
+    protected override async Task OnInitializedAsync()
+    {
+        session = await DbContext.Sessions
+            .Include(s => s.Scenario)
+            .ThenInclude(sc => sc!.Airport)
+            .Include(s => s.Turns)
+            .Include(s => s.Metrics)
+            .FirstOrDefaultAsync(s => s.Id == SessionId);
+            
+        if (session?.Turns != null)
+        {
+            turns = session.Turns.ToList();
+        }
+    }
+    
+    private string GetSessionDuration()
+    {
+        if (session?.StartedUtc == null) return "Unknown";
+        
+        try
+        {
+            var started = DateTime.Parse(session.StartedUtc);
+            var ended = string.IsNullOrEmpty(session.EndedUtc) 
+                ? DateTime.UtcNow 
+                : DateTime.Parse(session.EndedUtc);
+            
+            var duration = ended - started;
+            return $"{duration.Minutes:D2}:{duration.Seconds:D2}";
+        }
+        catch
+        {
+            return "Unknown";
+        }
+    }
+    
+    private string GetAverageScore()
+    {
+        if (!turns.Any()) return "N/A";
+        
+        try
+        {
+            // This is a simplified calculation - in real implementation,
+            // you'd calculate based on turn scores
+            return session?.ScoreTotal.ToString() ?? "0";
+        }
+        catch
+        {
+            return "N/A";
+        }
+    }
+    
+    private int GetCorrectionCount()
+    {
+        return turns.Count(t => !string.IsNullOrEmpty(t.InstructorJson));
+    }
+    
+    private string GetInstructorFeedback(string instructorJson)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(instructorJson);
+            if (doc.RootElement.TryGetProperty("blockReason", out var reason))
+            {
+                return reason.GetString() ?? "";
+            }
+            if (doc.RootElement.TryGetProperty("critical", out var critical) && critical.ValueKind == JsonValueKind.Array)
+            {
+                var items = critical.EnumerateArray().Select(x => x.GetString()).Where(x => x != null);
+                return string.Join(", ", items);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error parsing instructor feedback: {ex.Message}");
+        }
+        return "Feedback available";
+    }
+    
+    private string GetAtcResponse(string atcJson)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(atcJson);
+            if (doc.RootElement.TryGetProperty("transmission", out var transmission))
+            {
+                return transmission.GetString() ?? "ATC response";
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error parsing ATC response: {ex.Message}");
+        }
+        return "ATC response";
+    }
+    
+    private async Task PlayAudio(string audioPath)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("playAudio", "debrief-audio", audioPath);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error playing audio: {ex.Message}");
+        }
+    }
+    
+    private void GoToScenarios()
+    {
+        Navigation.NavigateTo("/scenarios");
+    }
+    
+    private void GoHome()
+    {
+        Navigation.NavigateTo("/");
+    }
+}

@@ -15,6 +15,9 @@ builder.Services.AddRazorComponents()
 // Add SignalR
 builder.Services.AddSignalR();
 
+// Add HttpClient for Blazor components
+builder.Services.AddHttpClient();
+
 // Add DbContext
 builder.Services.AddDbContext<SimDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("SimDb")));

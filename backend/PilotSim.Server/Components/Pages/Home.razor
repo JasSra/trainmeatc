@@ -1,7 +1,60 @@
 ﻿@page "/"
+@using Microsoft.AspNetCore.Components
+@inject NavigationManager Navigation
 
-<PageTitle>Home</PageTitle>
+<PageTitle>TrainMeATC - Pilot Communication Training</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="container-fluid vh-100 d-flex align-items-center justify-content-center">
+    <div class="text-center">
+        <h1 class="display-4 mb-4">TrainMeATC</h1>
+        <h2 class="h4 text-muted mb-5">Pilot Communication Training Simulator</h2>
+        
+        <div class="card shadow-lg" style="max-width: 600px;">
+            <div class="card-body p-5">
+                <h3 class="card-title mb-4">Important Disclaimer</h3>
+                <div class="text-start mb-4">
+                    <ul class="list-unstyled">
+                        <li class="mb-2">
+                            <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
+                            This is a training simulator only - not for real flight operations
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-headphones text-info me-2"></i>
+                            Audio recording will be used for speech-to-text processing
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-wifi text-success me-2"></i>
+                            Internet connection required for AI-powered instructor feedback
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-book text-primary me-2"></i>
+                            Always refer to official CASA/AIP publications for real procedures
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="form-check mb-4">
+                    <input class="form-check-input" type="checkbox" id="disclaimerAccept" @bind="DisclaimerAccepted">
+                    <label class="form-check-label" for="disclaimerAccept">
+                        I understand this is for training purposes only and accept the terms above
+                    </label>
+                </div>
+                
+                <button class="btn btn-primary btn-lg" 
+                        disabled="@(!DisclaimerAccepted)" 
+                        @onclick="ProceedToScenarios">
+                    Begin Training
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
-Welcome to your new app.
+@code {
+    private bool DisclaimerAccepted = false;
+    
+    private void ProceedToScenarios()
+    {
+        Navigation.NavigateTo("/scenarios");
+    }
+}
