@@ -1,16 +1,18 @@
 # Roadmap (Initial)
 
-## Milestone 0 - Scaffold
+## Milestone 0 - Scaffold ✅ COMPLETED
 - Repo + docs split (DONE)
 - Service interfaces placeholder (DONE)
-- Blazor Server solution scaffold
-- EF Core DbContext + initial migration
+- Blazor Server solution scaffold (DONE)
+- EF Core DbContext + initial migration (DONE)
 
-## Milestone 1 - Core Loop
-- STT endpoint + partial transcript streaming
-- Instructor structured output + retry gating
-- ATC response + state progression
-- TTS synthesis + playback
+## Milestone 1 - Core Loop ✅ COMPLETED
+- STT endpoint + partial transcript streaming (DONE)
+- Instructor structured output + retry gating (DONE)
+- ATC response + state progression (DONE)
+- TTS synthesis + playback (DONE)
+- OpenAI integrations for all services (DONE)
+- Full turn-based simulation loop (DONE)
 
 ## Milestone 2 - Debrief & Scoring
 - Score aggregation display
