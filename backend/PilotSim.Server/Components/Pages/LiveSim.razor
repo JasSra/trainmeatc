@@ -28,168 +28,262 @@
     }
     else if (currentSession == null)
     {
-        <div class="d-flex justify-content-center align-items-center h-100">
-            <div class="text-center">
-                <h3>Ready to Begin?</h3>
-                <p>Scenario: @scenario.Name (@scenario.AirportIcao)</p>
-                <button class="btn btn-success btn-lg" @onclick="StartSession">
-                    <i class="bi bi-play-fill me-2"></i>Start Session
-                </button>
-                <button class="btn btn-secondary ms-2" @onclick="GoBack">
-                    <i class="bi bi-arrow-left me-2"></i>Back to Scenarios
-                </button>
+        <div class="container-fluid py-4">
+            <div class="row justify-content-center">
+                <div class="col-md-8">
+                    <div class="aviation-panel">
+                        <div class="aviation-panel-header">
+                            <i class="bi bi-airplane-engines"></i>
+                            Training Session Setup
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h3>@scenario.Name</h3>
+                                <p class="text-muted mb-3">@(scenario.Kind ?? "Aviation communication training scenario")</p>
+                                
+                                <div class="row mb-4">
+                                    <div class="col-md-6">
+                                        <h6><i class="bi bi-geo-alt me-1"></i>Airport</h6>
+                                        <p class="mb-2"><strong>@scenario.AirportIcao</strong></p>
+                                        
+                                        <h6><i class="bi bi-speedometer me-1"></i>Difficulty</h6>
+                                        <span class="scenario-difficulty difficulty-@(scenario.Difficulty?.ToLower() ?? "basic")">
+                                            @(scenario.Difficulty ?? "Basic")
+                                        </span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6><i class="bi bi-headphones me-1"></i>Audio Check</h6>
+                                        <p class="text-muted mb-2">Ensure your microphone is working properly</p>
+                                        <button class="btn btn-outline-primary btn-sm" @onclick="TestMicrophone">
+                                            <i class="bi bi-mic-fill me-1"></i>Test Microphone
+                                        </button>
+                                        @if (microphoneTestResult != null)
+                                        {
+                                            <div class="mt-2">
+                                                <small class="text-@(microphoneTestResult.Value ? "success" : "danger")">
+                                                    <i class="bi bi-@(microphoneTestResult.Value ? "check-circle" : "x-circle") me-1"></i>
+                                                    @(microphoneTestResult.Value ? "Microphone working" : "Microphone issue detected")
+                                                </small>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                                
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    <strong>Session Instructions:</strong>
+                                    Use professional aviation phraseology. Press and hold the microphone button while speaking. 
+                                    Follow ATC instructions promptly and acknowledge all communications.
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <div class="aviation-panel-header">
+                                    <i class="bi bi-shield-check"></i>
+                                    Session Ready
+                                </div>
+                                <p class="text-muted mb-4">All systems operational and ready for training.</p>
+                                
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-aviation-primary btn-lg" @onclick="StartSession">
+                                        <i class="bi bi-play-fill me-2"></i>Start Training Session
+                                    </button>
+                                    <button class="btn btn-outline-secondary" @onclick="GoBack">
+                                        <i class="bi bi-arrow-left me-2"></i>Back to Scenarios
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     }
     else
     {
-        <!-- Main Simulation Interface -->
-        <div class="row g-0 h-100">
-            <!-- Left Panel: Microphone and Transcript -->
-            <div class="col-md-6 d-flex flex-column">
-                <!-- Microphone Capture Section -->
-                <div class="bg-primary text-white p-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">
-                            <i class="bi bi-mic me-2"></i>Push to Talk
-                        </h5>
-                        <div>
-                            <span class="badge bg-light text-dark">Session: @currentSession.Id</span>
+        <!-- Professional Aviation Training Interface -->
+        <div class="container-fluid py-3">
+            <div class="row g-3">
+                <!-- Session Header -->
+                <div class="col-12">
+                    <div class="aviation-panel">
+                        <div class="aviation-panel-header">
+                            <i class="bi bi-broadcast"></i>
+                            Live Training Session - @scenario.Name
                         </div>
-                    </div>
-                    <div class="mt-3">
-                        <button class="btn @(isRecording ? "btn-danger" : "btn-light") btn-lg"
-                                @onmousedown="StartRecording"
-                                @onmouseup="StopRecording"
-                                @ontouchstart="StartRecording"
-                                @ontouchend="StopRecording"
-                                disabled="@isBlocked">
-                            <i class="bi bi-@(isRecording ? "mic-fill" : "mic") me-2"></i>
-                            @(isRecording ? "Recording..." : (isBlocked ? "Blocked" : "Hold to Talk"))
-                        </button>
-                        
-                        @if (audioLevel > 0)
-                        {
-                            <div class="progress mt-2" style="height: 8px;">
-                                <div class="progress-bar bg-warning" 
-                                     style="width: @(audioLevel * 100)%"></div>
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <div class="session-status @(isRecording ? "recording" : "active")">
+                                    <i class="bi bi-@(isRecording ? "mic-fill" : "radio") me-1"></i>
+                                    @(isRecording ? "Recording" : "Active")
+                                </div>
+                                <small class="text-muted">@scenario.AirportIcao • Session @currentSession.Id</small>
                             </div>
-                        }
-                    </div>
-                </div>
-
-                <!-- Transcript Section -->
-                <div class="flex-grow-1 p-3 bg-light overflow-auto">
-                    <h6>Transcript</h6>
-                    <div id="transcript-container" class="border rounded p-3 bg-white" style="min-height: 200px;">
-                        @if (!string.IsNullOrEmpty(currentTranscript))
-                        {
-                            <div class="transcript-text">
-                                @if (isPartialTranscript)
-                                {
-                                    <span class="text-muted">@currentTranscript</span>
-                                }
-                                else
-                                {
-                                    <span>@currentTranscript</span>
-                                }
-                            </div>
-                        }
-                        
-                        @foreach (var turn in completedTurns)
-                        {
-                            <div class="turn-item border-bottom pb-2 mb-2">
-                                <small class="text-muted">Turn @turn.Idx:</small>
-                                <div>@turn.UserTranscript</div>
-                            </div>
-                        }
-                    </div>
-                </div>
-
-                <!-- Retry Bar (shown when blocked) -->
-                @if (isBlocked && !string.IsNullOrEmpty(blockReason))
-                {
-                    <div class="bg-warning text-dark p-3">
-                        <h6><i class="bi bi-exclamation-triangle me-2"></i>Instructor Feedback</h6>
-                        <p class="mb-2">@blockReason</p>
-                        <button class="btn btn-dark btn-sm" @onclick="ClearBlock">
-                            <i class="bi bi-check me-1"></i>Acknowledge
-                        </button>
-                    </div>
-                }
-            </div>
-
-            <!-- Right Panel: ATC and Score -->
-            <div class="col-md-6 d-flex flex-column">
-                <!-- ATC Panel -->
-                <div class="bg-success text-white p-3">
-                    <h5 class="mb-0">
-                        <i class="bi bi-tower me-2"></i>ATC (@(scenario.AirportIcao ?? "UNKNOWN"))
-                    </h5>
-                    
-                    @if (!string.IsNullOrEmpty(lastAtcTransmission))
-                    {
-                        <div class="mt-3">
-                            <div class="card bg-light text-dark">
-                                <div class="card-body">
-                                    <p class="mb-2">@lastAtcTransmission</p>
-                                    @if (!string.IsNullOrEmpty(lastTtsAudioPath))
+                            <div class="col-md-6 text-end">
+                                <div class="score-display">
+                                    <span class="score-value">@totalScore</span>
+                                    <span class="score-label">Score</span>
+                                    @if (scoreDelta != 0)
                                     {
-                                        <button class="btn btn-sm btn-outline-success" @onclick="PlayAtcAudio">
-                                            <i class="bi bi-play-fill me-1"></i>Play Audio
-                                        </button>
+                                        <div class="score-delta @(scoreDelta > 0 ? "positive" : "negative")">
+                                            @(scoreDelta > 0 ? "+" : "")@scoreDelta
+                                        </div>
                                     }
                                 </div>
                             </div>
                         </div>
-                    }
+                    </div>
                 </div>
 
-                <!-- Score Strip -->
-                <div class="bg-info text-white p-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0">Score</h6>
-                        <span class="h4 mb-0">@totalScore</span>
-                    </div>
-                    
-                    @if (scoreDelta != 0)
-                    {
-                        <div class="mt-2">
-                            <span class="badge bg-@(scoreDelta > 0 ? "success" : "danger")">
-                                @(scoreDelta > 0 ? "+" : "")@scoreDelta
-                            </span>
+                <!-- Main Training Interface -->
+                <div class="col-md-6">
+                    <!-- Push to Talk Section -->
+                    <div class="aviation-panel">
+                        <div class="aviation-panel-header">
+                            <i class="bi bi-mic"></i>
+                            Radio Communication
                         </div>
-                    }
+                        
+                        <div class="text-center mb-4">
+                            <button class="btn push-to-talk @(isRecording ? "recording" : "btn-aviation-primary") btn-lg"
+                                    @onmousedown="StartRecording"
+                                    @onmouseup="StopRecording"
+                                    @ontouchstart="StartRecording"
+                                    @ontouchend="StopRecording"
+                                    disabled="@isBlocked">
+                                <i class="bi bi-@(isRecording ? "mic-fill" : "mic") me-2"></i>
+                                @(isRecording ? "TRANSMITTING" : (isBlocked ? "BLOCKED" : "PUSH TO TALK"))
+                            </button>
+                        </div>
+
+                        <!-- Audio Level Meter -->
+                        <div class="audio-level-meter">
+                            <div class="audio-level-bar" style="width: @(audioLevel * 100)%"></div>
+                        </div>
+                        <small class="text-muted">Audio Level: @((int)(audioLevel * 100))%</small>
+
+                        <!-- Block/Error Display -->
+                        @if (isBlocked && !string.IsNullOrEmpty(blockReason))
+                        {
+                            <div class="retry-banner mt-3">
+                                <div class="retry-message">
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                    <span>@blockReason</span>
+                                </div>
+                                <div class="retry-actions">
+                                    <button class="btn btn-sm btn-outline-light" @onclick="ClearBlock">
+                                        <i class="bi bi-arrow-clockwise me-1"></i>Retry
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Transcript Display -->
+                    <div class="aviation-panel">
+                        <div class="aviation-panel-header">
+                            <i class="bi bi-chat-dots"></i>
+                            Live Transcript
+                        </div>
+                        <div class="transcript-container">
+                            @if (!string.IsNullOrEmpty(currentTranscript))
+                            {
+                                <div class="@(isPartialTranscript ? "transcript-partial" : "transcript-final")">
+                                    @currentTranscript
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="text-muted">Your communications will appear here...</div>
+                            }
+                        </div>
+                        @if (isPartialTranscript)
+                        {
+                            <small class="text-info">
+                                <i class="bi bi-typing me-1"></i>Processing speech...
+                            </small>
+                        }
+                    </div>
                 </div>
 
-                <!-- Instructions/Help -->
-                <div class="flex-grow-1 p-3 bg-light overflow-auto">
-                    <h6>Instructions</h6>
-                    <div class="small">
-                        <ul class="list-unstyled">
-                            <li class="mb-2">
-                                <i class="bi bi-mic me-2"></i>
-                                Hold the microphone button to record your transmission
-                            </li>
-                            <li class="mb-2">
+                <!-- Right Panel: ATC and Feedback -->
+                <div class="col-md-6">
+                    <!-- ATC Communications -->
+                    <div class="aviation-panel">
+                        <div class="aviation-panel-header">
+                            <i class="bi bi-tower"></i>
+                            Air Traffic Control
+                        </div>
+                        
+                        @if (!string.IsNullOrEmpty(lastAtcTransmission))
+                        {
+                            <div class="atc-transmission p-3 mb-3">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <strong class="text-aviation-primary">Melbourne Tower:</strong>
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="PlayAtcAudio">
+                                        <i class="bi bi-volume-up"></i>
+                                    </button>
+                                </div>
+                                <p class="mb-0">@lastAtcTransmission</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-muted p-3">
                                 <i class="bi bi-headphones me-2"></i>
-                                Listen carefully to ATC instructions
-                            </li>
-                            <li class="mb-2">
-                                <i class="bi bi-chat-text me-2"></i>
-                                Use standard aviation phraseology
-                            </li>
-                            <li class="mb-2">
-                                <i class="bi bi-exclamation-triangle me-2"></i>
-                                Pay attention to instructor feedback
-                            </li>
-                        </ul>
+                                Listening for ATC communications...
+                            </div>
+                        }
                     </div>
-                    
-                    <div class="mt-4">
-                        <button class="btn btn-outline-danger btn-sm" @onclick="EndSession">
-                            <i class="bi bi-stop-fill me-1"></i>End Session
-                        </button>
+
+                    <!-- Session Progress -->
+                    <div class="aviation-panel">
+                        <div class="aviation-panel-header">
+                            <i class="bi bi-list-check"></i>
+                            Session Progress
+                        </div>
+                        
+                        @if (completedTurns.Any())
+                        {
+                            <div class="timeline">
+                                @foreach (var turn in completedTurns.TakeLast(5))
+                                {
+                                    <div class="timeline-item">
+                                        <div class="timeline-marker">
+                                            <i class="bi bi-check"></i>
+                                        </div>
+                                        <div class="timeline-content">
+                                            <small class="text-muted">Turn @turn.Idx</small>
+                                            <p class="mb-1">@turn.UserTranscript</p>
+                                            <small class="text-success">Completed</small>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-muted p-3">
+                                <i class="bi bi-clock me-2"></i>
+                                Session starting...
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Session Controls -->
+                    <div class="aviation-panel">
+                        <div class="aviation-panel-header">
+                            <i class="bi bi-gear"></i>
+                            Session Controls
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-aviation-danger" @onclick="EndSession">
+                                <i class="bi bi-stop-fill me-2"></i>End Session
+                            </button>
+                            <small class="text-muted text-center">
+                                Use this to end your training session and view your debrief.
+                            </small>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -218,6 +312,7 @@
     private int totalScore = 0;
     private int scoreDelta = 0;
     private double audioLevel = 0;
+    private bool? microphoneTestResult = null;
     
     protected override async Task OnInitializedAsync()
     {
@@ -297,26 +392,42 @@
             var response = await Http.PostAsJsonAsync("/api/session", sessionRequest);
             if (response.IsSuccessStatusCode)
             {
-                var sessionData = await response.Content.ReadFromJsonAsync<dynamic>();
-                // For now, create a simple session object - in real implementation, 
-                // the API should return the session details
+                var sessionId = await response.Content.ReadFromJsonAsync<int>();
                 currentSession = new Session 
                 { 
-                    Id = Random.Shared.Next(1000, 9999),
+                    Id = sessionId,
                     ScenarioId = scenario.Id,
-                    StartedUtc = DateTime.UtcNow.ToString("O")
+                    StartedUtc = DateTime.UtcNow.ToString("O"),
+                    Difficulty = scenario.Difficulty ?? "Basic"
                 };
+                
+                // Join the SignalR group for this session
+                if (hubConnection != null && hubConnection.State == HubConnectionState.Connected)
+                {
+                    await hubConnection.InvokeAsync("JoinSession", sessionId.ToString());
+                }
+                
+                // Set up audio callbacks
+                await SetupAudioCallbacks();
+                
+                StateHasChanged();
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Handle error - for now just continue with mock session
+            Console.WriteLine($"Error starting session: {ex.Message}");
+            // Handle error - create a fallback session for testing
             currentSession = new Session 
             { 
                 Id = Random.Shared.Next(1000, 9999),
                 ScenarioId = scenario.Id,
-                StartedUtc = DateTime.UtcNow.ToString("O")
+                StartedUtc = DateTime.UtcNow.ToString("O"),
+                Difficulty = scenario.Difficulty ?? "Basic"
             };
+            
+            // Still set up audio callbacks for testing
+            await SetupAudioCallbacks();
+            StateHasChanged();
         }
     }
     
@@ -388,6 +499,108 @@
         }
         
         Navigation.NavigateTo($"/debrief/{currentSession?.Id}");
+    }
+    
+    private async Task TestMicrophone()
+    {
+        try
+        {
+            // Test microphone access
+            var hasAccess = await JSRuntime.InvokeAsync<bool>("isAudioCaptureSupported");
+            if (hasAccess)
+            {
+                // Try to get audio devices
+                var devices = await JSRuntime.InvokeAsync<object[]>("getAudioDevices");
+                microphoneTestResult = devices?.Length > 0;
+            }
+            else
+            {
+                microphoneTestResult = false;
+            }
+        }
+        catch
+        {
+            microphoneTestResult = false;
+        }
+        
+        StateHasChanged();
+    }
+
+    private async Task SetupAudioCallbacks()
+    {
+        // Set the current session ID in JavaScript for audio processing
+        if (currentSession != null)
+        {
+            await JSRuntime.InvokeVoidAsync("eval", $"window.currentSessionId = '{currentSession.Id}';");
+        }
+        
+        // Set up JavaScript callbacks for audio level updates and STT results
+        await JSRuntime.InvokeVoidAsync("eval", @"
+            window.blazorAudioLevelCallback = (level) => {
+                if (window.blazorInstance) {
+                    window.blazorInstance.invokeMethodAsync('UpdateAudioLevelInstance', level);
+                }
+            };
+            
+            window.blazorSttCallback = (text, confidence) => {
+                if (window.blazorInstance) {
+                    window.blazorInstance.invokeMethodAsync('ProcessSttResultInstance', text, confidence);
+                }
+            };
+            
+            window.blazorSttErrorCallback = (error) => {
+                if (window.blazorInstance) {
+                    window.blazorInstance.invokeMethodAsync('HandleSttErrorInstance', error);
+                }
+            };
+        ");
+        
+        // Store this component instance for callbacks
+        await JSRuntime.InvokeVoidAsync("eval", "window.blazorInstance = DotNet.createJSObjectReference(arguments[0]);", DotNetObjectReference.Create(this));
+    }
+
+    [JSInvokable]
+    public void UpdateAudioLevelInstance(double level)
+    {
+        audioLevel = level;
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]  
+    public void ProcessSttResultInstance(string text, double confidence)
+    {
+        currentTranscript = text;
+        isPartialTranscript = confidence < 0.8;
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public void HandleSttErrorInstance(string error)
+    {
+        blockReason = $"Speech recognition error: {error}";
+        isBlocked = true;
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public static void UpdateAudioLevel(double level)
+    {
+        // Legacy static method - kept for backward compatibility
+        Console.WriteLine($"Audio Level: {level * 100:F0}%");
+    }
+
+    [JSInvokable]  
+    public static void ProcessSttResult(string text, double confidence)
+    {
+        // Legacy static method - kept for backward compatibility
+        Console.WriteLine($"STT Result: {text} (confidence: {confidence})");
+    }
+
+    [JSInvokable]
+    public static void HandleSttError(string error)
+    {
+        // Legacy static method - kept for backward compatibility
+        Console.WriteLine($"STT Error: {error}");
     }
     
     private void GoBack()

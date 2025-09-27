@@ -1,52 +1,97 @@
 /* TrainMeATC - Professional Pilot Training System */
 /* ================================================ */
 
-/* Root Variables for Light Theme */
+/* Import Google Fonts for better typography */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* Root Variables for Light Theme - Aviation Professional */
 :root {
-    --primary-color: #1e3a8a;
-    --primary-hover: #1e40af;
-    --secondary-color: #64748b;
-    --accent-color: #0ea5e9;
-    --success-color: #16a34a;
-    --warning-color: #ca8a04;
-    --danger-color: #dc2626;
+    /* Aviation Color Palette */
+    --aviation-primary: #1e3a8a;
+    --aviation-primary-hover: #1e40af;
+    --aviation-secondary: #334155;
+    --aviation-accent: #0ea5e9;
+    --aviation-accent-hover: #0284c7;
+    --aviation-warning: #f59e0b;
+    --aviation-success: #10b981;
+    --aviation-danger: #ef4444;
+    --aviation-info: #06b6d4;
     
+    /* Legacy support - map to aviation colors */
+    --primary-color: var(--aviation-primary);
+    --primary-hover: var(--aviation-primary-hover);
+    --secondary-color: #64748b;
+    --accent-color: var(--aviation-accent);
+    --success-color: var(--aviation-success);
+    --warning-color: var(--aviation-warning);
+    --danger-color: var(--aviation-danger);
+    
+    /* Background Colors */
     --bg-primary: #ffffff;
     --bg-secondary: #f8fafc;
     --bg-tertiary: #e2e8f0;
+    --bg-aviation-panel: #f1f5f9;
+    
+    /* Text Colors */
     --text-primary: #1e293b;
     --text-secondary: #64748b;
     --text-muted: #94a3b8;
+    --text-aviation-light: rgba(255, 255, 255, 0.9);
     
+    /* Border and Shadow */
     --border-color: #e2e8f0;
+    --border-aviation: #cbd5e1;
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-aviation: 0 8px 32px rgba(30, 58, 138, 0.15);
     
-    --transition: all 0.2s ease-in-out;
+    /* Transitions */
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-fast: all 0.2s ease-in-out;
 }
 
-/* Dark Theme Variables */
+/* Dark Theme Variables - Aviation Night Mode */
 .dark-theme {
-    --primary-color: #3b82f6;
-    --primary-hover: #2563eb;
-    --secondary-color: #94a3b8;
-    --accent-color: #38bdf8;
-    --success-color: #22c55e;
-    --warning-color: #eab308;
-    --danger-color: #ef4444;
+    /* Aviation Night Colors */
+    --aviation-primary: #3b82f6;
+    --aviation-primary-hover: #2563eb;
+    --aviation-secondary: #1e293b;
+    --aviation-accent: #38bdf8;
+    --aviation-accent-hover: #0ea5e9;
+    --aviation-warning: #fbbf24;
+    --aviation-success: #34d399;
+    --aviation-danger: #f87171;
+    --aviation-info: #22d3ee;
     
+    /* Legacy support */
+    --primary-color: var(--aviation-primary);
+    --primary-hover: var(--aviation-primary-hover);
+    --secondary-color: #94a3b8;
+    --accent-color: var(--aviation-accent);
+    --success-color: var(--aviation-success);
+    --warning-color: var(--aviation-warning);
+    --danger-color: var(--aviation-danger);
+    
+    /* Dark Backgrounds */
     --bg-primary: #0f172a;
     --bg-secondary: #1e293b;
     --bg-tertiary: #334155;
+    --bg-aviation-panel: #1e293b;
+    
+    /* Dark Text */
     --text-primary: #f1f5f9;
     --text-secondary: #cbd5e1;
     --text-muted: #94a3b8;
+    --text-aviation-light: rgba(255, 255, 255, 0.9);
     
+    /* Dark Borders and Shadows */
     --border-color: #334155;
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.3);
+    --border-aviation: #475569;
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+    --shadow-aviation: 0 8px 32px rgba(59, 130, 246, 0.25);
 }
 
 /* Base Styles */
@@ -508,4 +553,446 @@ a:hover {
 
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
+}
+
+/* Aviation Professional Enhancements */
+/* ================================== */
+
+/* Audio Level Meters */
+.audio-level-meter {
+    position: relative;
+    height: 8px;
+    background-color: var(--bg-tertiary);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 0.5rem 0;
+}
+
+.audio-level-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--aviation-success) 0%, var(--aviation-warning) 70%, var(--aviation-danger) 90%);
+    transition: width 0.1s ease-out;
+    border-radius: 4px;
+}
+
+/* Aviation Panel Styles */
+.aviation-panel {
+    background: var(--bg-aviation-panel);
+    border: 1px solid var(--border-aviation);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin: 1rem 0;
+    box-shadow: var(--shadow-aviation);
+}
+
+.aviation-panel-header {
+    font-weight: 600;
+    color: var(--aviation-primary);
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+}
+
+.aviation-panel-header i {
+    margin-right: 0.5rem;
+    color: var(--aviation-accent);
+}
+
+/* Session Status Indicators */
+.session-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.session-status.active {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: var(--aviation-success);
+    border: 1px solid var(--aviation-success);
+}
+
+.session-status.inactive {
+    background-color: rgba(107, 114, 128, 0.1);
+    color: var(--text-muted);
+    border: 1px solid var(--text-muted);
+}
+
+.session-status.recording {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: var(--aviation-danger);
+    border: 1px solid var(--aviation-danger);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* Push-to-Talk Button */
+.push-to-talk {
+    position: relative;
+    overflow: hidden;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.2s ease;
+}
+
+.push-to-talk:active {
+    transform: scale(0.98);
+}
+
+.push-to-talk.recording {
+    background: linear-gradient(45deg, var(--aviation-danger), #dc2626);
+    border-color: var(--aviation-danger);
+    animation: recordingPulse 1.5s infinite;
+}
+
+@keyframes recordingPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+    50% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
+}
+
+/* Aviation Resource Links */
+.aviation-resources {
+    background: linear-gradient(135deg, var(--aviation-primary), var(--aviation-primary-hover));
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    color: white;
+}
+
+.aviation-resources h5 {
+    color: white;
+    margin-bottom: 1rem;
+    font-weight: 600;
+}
+
+.aviation-resource-link {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 0.5rem;
+    margin: 0.5rem 0;
+    color: white;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.aviation-resource-link:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateX(4px);
+    color: white;
+    text-decoration: none;
+}
+
+.aviation-resource-link i {
+    margin-right: 0.75rem;
+    color: var(--aviation-accent);
+}
+
+/* Training Scenario Cards */
+.scenario-card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.scenario-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--aviation-accent);
+}
+
+.scenario-card-header {
+    background: linear-gradient(135deg, var(--aviation-primary), var(--aviation-primary-hover));
+    color: white;
+    padding: 1rem 1.5rem;
+    font-weight: 600;
+}
+
+.scenario-card-body {
+    padding: 1.5rem;
+}
+
+.scenario-difficulty {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.difficulty-beginner {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: var(--aviation-success);
+}
+
+.difficulty-intermediate {
+    background-color: rgba(245, 158, 11, 0.1);
+    color: var(--aviation-warning);
+}
+
+.difficulty-advanced {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: var(--aviation-danger);
+}
+
+/* Transcript Display */
+.transcript-container {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    max-height: 200px;
+    overflow-y: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+.transcript-partial {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.transcript-final {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+/* Score Display */
+.score-display {
+    background: linear-gradient(135deg, var(--aviation-success), #059669);
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 0.75rem;
+    text-align: center;
+    margin: 1rem 0;
+}
+
+.score-value {
+    font-size: 2rem;
+    font-weight: 700;
+    display: block;
+}
+
+.score-label {
+    font-size: 0.875rem;
+    opacity: 0.9;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.score-delta {
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+}
+
+.score-delta.positive {
+    color: #86efac;
+}
+
+.score-delta.negative {
+    color: #fca5a5;
+}
+
+/* Loading States */
+.loading-spinner {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid var(--border-color);
+    border-top: 2px solid var(--aviation-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Retry Mechanism Styles */
+.retry-banner {
+    background: linear-gradient(135deg, var(--aviation-warning), #d97706);
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 0.5rem;
+    margin: 1rem 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.retry-message {
+    display: flex;
+    align-items: center;
+}
+
+.retry-message i {
+    margin-right: 0.75rem;
+    font-size: 1.2rem;
+}
+
+.retry-actions button {
+    margin-left: 0.5rem;
+}
+
+/* Professional Footer */
+.footer-professional {
+    background: var(--aviation-secondary);
+    color: var(--text-aviation-light);
+    padding: 2rem 0;
+    margin-top: auto;
+}
+
+.footer-links a {
+    color: var(--text-aviation-light);
+    text-decoration: none;
+    margin: 0 1rem;
+    font-size: 0.875rem;
+}
+
+.footer-links a:hover {
+    color: var(--aviation-accent);
+    text-decoration: underline;
+}
+
+/* Accessibility Improvements */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+    :root {
+        --border-color: #000;
+        --text-muted: #666;
+    }
+    
+    .dark-theme {
+        --border-color: #fff;
+        --text-muted: #ccc;
+    }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Aviation-Themed Button Classes */
+.btn-aviation-primary {
+    background: linear-gradient(135deg, var(--aviation-primary), var(--aviation-primary-hover));
+    border: none;
+    color: white;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: var(--transition);
+}
+
+.btn-aviation-primary:hover {
+    background: linear-gradient(135deg, var(--aviation-primary-hover), var(--aviation-primary));
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+    color: white;
+}
+
+.btn-aviation-danger {
+    background: linear-gradient(135deg, var(--aviation-danger), #dc2626);
+    border: none;
+    color: white;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: var(--transition);
+}
+
+.btn-aviation-danger:hover {
+    background: linear-gradient(135deg, #dc2626, var(--aviation-danger));
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+    color: white;
+}
+
+/* ATC Transmission Styling */
+.atc-transmission {
+    background: linear-gradient(135deg, var(--aviation-secondary), #475569);
+    border-radius: 0.5rem;
+    border-left: 4px solid var(--aviation-accent);
+    color: white;
+}
+
+/* Timeline Styling */
+.timeline {
+    position: relative;
+    padding-left: 2rem;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 0.75rem;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border-aviation);
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 1.5rem;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -2.2rem;
+    top: 0.25rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    background: var(--aviation-success);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.75rem;
+    z-index: 1;
+}
+
+.timeline-content {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 1rem;
+}
+
+.dark-theme .timeline-content {
+    background: var(--bg-secondary);
+}
 }

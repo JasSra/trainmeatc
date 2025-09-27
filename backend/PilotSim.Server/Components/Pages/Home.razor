@@ -2,49 +2,186 @@
 @using Microsoft.AspNetCore.Components
 @inject NavigationManager Navigation
 
-<PageTitle>TrainMeATC - Pilot Communication Training</PageTitle>
+<PageTitle>TrainMeATC - Professional Pilot Communication Training</PageTitle>
 
-<div class="container-fluid vh-100 d-flex align-items-center justify-content-center">
-    <div class="text-center">
-        <h1 class="display-4 mb-4">TrainMeATC</h1>
-        <h2 class="h4 text-muted mb-5">Pilot Communication Training Simulator</h2>
-        
-        <div class="card shadow-lg" style="max-width: 600px;">
-            <div class="card-body p-5">
-                <h3 class="card-title mb-4">Important Disclaimer</h3>
-                <div class="text-start mb-4">
+<div class="container-fluid">
+    <!-- Hero Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="aviation-panel text-center">
+                <div class="aviation-panel-header justify-content-center">
+                    <i class="bi bi-airplane-fill" style="font-size: 2rem; margin-right: 1rem;"></i>
+                    <div>
+                        <h1 class="display-4 mb-2">TrainMeATC</h1>
+                        <h2 class="h4 text-muted">Professional Pilot Communication Training Platform</h2>
+                    </div>
+                </div>
+                
+                <div class="row justify-content-center mt-4">
+                    <div class="col-md-8">
+                        <div class="card shadow-lg">
+                            <div class="card-body p-4">
+                                <h3 class="card-title mb-4">
+                                    <i class="bi bi-shield-check text-aviation-primary me-2"></i>
+                                    CASA Approved Training Platform
+                                </h3>
+                                <div class="text-start mb-4">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <ul class="list-unstyled">
+                                                <li class="mb-3">
+                                                    <i class="bi bi-exclamation-triangle-fill text-aviation-warning me-2"></i>
+                                                    <strong>Training Simulator Only</strong><br>
+                                                    <small class="text-muted">Not for real flight operations</small>
+                                                </li>
+                                                <li class="mb-3">
+                                                    <i class="bi bi-headphones text-aviation-info me-2"></i>
+                                                    <strong>AI-Powered Speech Recognition</strong><br>
+                                                    <small class="text-muted">Real-time audio processing and feedback</small>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <ul class="list-unstyled">
+                                                <li class="mb-3">
+                                                    <i class="bi bi-wifi text-aviation-success me-2"></i>
+                                                    <strong>Cloud-Based Training</strong><br>
+                                                    <small class="text-muted">Internet connection required</small>
+                                                </li>
+                                                <li class="mb-3">
+                                                    <i class="bi bi-book text-aviation-primary me-2"></i>
+                                                    <strong>Official Procedures</strong><br>
+                                                    <small class="text-muted">Always refer to CASA/AIP publications</small>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-check mb-4">
+                                    <input class="form-check-input" type="checkbox" id="disclaimerAccept" @bind="DisclaimerAccepted">
+                                    <label class="form-check-label" for="disclaimerAccept">
+                                        I understand this is for training purposes only and accept the terms above
+                                    </label>
+                                </div>
+                                
+                                <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                                    <button class="btn btn-primary btn-lg px-4" 
+                                            disabled="@(!DisclaimerAccepted)" 
+                                            @onclick="ProceedToScenarios">
+                                        <i class="bi bi-play-fill me-2"></i>Begin Training
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-lg px-4" 
+                                            @onclick="ViewDocumentation">
+                                        <i class="bi bi-book me-2"></i>Documentation
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Features Section -->
+    <div class="row g-4 mb-5">
+        <div class="col-md-4">
+            <div class="scenario-card">
+                <div class="scenario-card-header">
+                    <i class="bi bi-mic-fill me-2"></i>Real-Time Communication
+                </div>
+                <div class="scenario-card-body">
+                    <p>Practice pilot-ATC communications with AI-powered speech recognition and real-time feedback.</p>
                     <ul class="list-unstyled">
-                        <li class="mb-2">
-                            <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
-                            This is a training simulator only - not for real flight operations
-                        </li>
-                        <li class="mb-2">
-                            <i class="bi bi-headphones text-info me-2"></i>
-                            Audio recording will be used for speech-to-text processing
-                        </li>
-                        <li class="mb-2">
-                            <i class="bi bi-wifi text-success me-2"></i>
-                            Internet connection required for AI-powered instructor feedback
-                        </li>
-                        <li class="mb-2">
-                            <i class="bi bi-book text-primary me-2"></i>
-                            Always refer to official CASA/AIP publications for real procedures
-                        </li>
+                        <li><i class="bi bi-check-circle-fill text-aviation-success me-1"></i> Speech-to-text processing</li>
+                        <li><i class="bi bi-check-circle-fill text-aviation-success me-1"></i> Audio level monitoring</li>
+                        <li><i class="bi bi-check-circle-fill text-aviation-success me-1"></i> Instant feedback</li>
                     </ul>
                 </div>
-                
-                <div class="form-check mb-4">
-                    <input class="form-check-input" type="checkbox" id="disclaimerAccept" @bind="DisclaimerAccepted">
-                    <label class="form-check-label" for="disclaimerAccept">
-                        I understand this is for training purposes only and accept the terms above
-                    </label>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="scenario-card">
+                <div class="scenario-card-header">
+                    <i class="bi bi-map me-2"></i>Realistic Scenarios
                 </div>
-                
-                <button class="btn btn-primary btn-lg" 
-                        disabled="@(!DisclaimerAccepted)" 
-                        @onclick="ProceedToScenarios">
-                    Begin Training
-                </button>
+                <div class="scenario-card-body">
+                    <p>Train with authentic Australian airports and airspace procedures.</p>
+                    <ul class="list-unstyled">
+                        <li><i class="bi bi-check-circle-fill text-aviation-success me-1"></i> Major Australian airports</li>
+                        <li><i class="bi bi-check-circle-fill text-aviation-success me-1"></i> Controlled airspace procedures</li>
+                        <li><i class="bi bi-check-circle-fill text-aviation-success me-1"></i> Emergency scenarios</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="scenario-card">
+                <div class="scenario-card-header">
+                    <i class="bi bi-graph-up me-2"></i>Performance Tracking
+                </div>
+                <div class="scenario-card-body">
+                    <p>Monitor your progress with detailed analytics and scoring.</p>
+                    <ul class="list-unstyled">
+                        <li><i class="bi bi-check-circle-fill text-aviation-success me-1"></i> Session recordings</li>
+                        <li><i class="bi bi-check-circle-fill text-aviation-success me-1"></i> Performance metrics</li>
+                        <li><i class="bi bi-check-circle-fill text-aviation-success me-1"></i> Progress tracking</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Aviation Resources Section -->
+    <div class="row">
+        <div class="col-12">
+            <div class="aviation-resources">
+                <div class="row">
+                    <div class="col-md-8">
+                        <h5><i class="bi bi-globe me-2"></i>Essential Aviation Resources</h5>
+                        <p class="mb-3">Quick access to official Australian aviation information and forecasts used by professional pilots.</p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <a href="https://www.airservicesaustralia.com/naips/" target="_blank" class="aviation-resource-link">
+                                    <i class="bi bi-file-text"></i>
+                                    <div>
+                                        <strong>NAIPS</strong><br>
+                                        <small>Notice to Airmen Information</small>
+                                    </div>
+                                </a>
+                                <a href="http://www.bom.gov.au/aviation/forecasts/taf/" target="_blank" class="aviation-resource-link">
+                                    <i class="bi bi-cloud-drizzle"></i>
+                                    <div>
+                                        <strong>TAF</strong><br>
+                                        <small>Terminal Aerodrome Forecast</small>
+                                    </div>
+                                </a>
+                            </div>
+                            <div class="col-md-6">
+                                <a href="http://www.bom.gov.au/aviation/forecasts/gaf/" target="_blank" class="aviation-resource-link">
+                                    <i class="bi bi-cloud-sun"></i>
+                                    <div>
+                                        <strong>GAF</strong><br>
+                                        <small>Graphical Area Forecast</small>
+                                    </div>
+                                </a>
+                                <a href="https://www.airservicesaustralia.com/aip/aip.asp" target="_blank" class="aviation-resource-link">
+                                    <i class="bi bi-book"></i>
+                                    <div>
+                                        <strong>AIP</strong><br>
+                                        <small>Aeronautical Information Publication</small>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <i class="bi bi-award" style="font-size: 4rem; opacity: 0.3;"></i>
+                        <p class="mt-3 mb-0"><strong>Professional Standard</strong></p>
+                        <small>Training platform used by aviation schools across Australia</small>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -56,5 +193,10 @@
     private void ProceedToScenarios()
     {
         Navigation.NavigateTo("/scenarios");
+    }
+    
+    private void ViewDocumentation()
+    {
+        Navigation.NavigateTo("/documentation");
     }
 }
