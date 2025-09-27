@@ -1,0 +1,142 @@
+@page "/scenarios"
+@using Microsoft.AspNetCore.Components
+@using Microsoft.EntityFrameworkCore
+@using PilotSim.Data
+@using PilotSim.Data.Models
+@inject NavigationManager Navigation
+@inject SimDbContext DbContext
+
+<PageTitle>Select Training Scenario - TrainMeATC</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <h1 class="text-center mb-4">Select Training Scenario</h1>
+            
+            @if (scenarios == null)
+            {
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p>Loading scenarios...</p>
+                </div>
+            }
+            else if (!scenarios.Any())
+            {
+                <div class="alert alert-warning text-center">
+                    <h4>No scenarios available</h4>
+                    <p>No training scenarios found in the database.</p>
+                </div>
+            }
+            else
+            {
+                <div class="row">
+                    @foreach (var scenario in scenarios)
+                    {
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100 @(selectedScenario?.Id == scenario.Id ? "border-primary" : "")">
+                                <div class="card-body">
+                                    <h5 class="card-title">@scenario.Name</h5>
+                                    <p class="card-text">@(scenario.Kind ?? "General training scenario")</p>
+                                    
+                                    <div class="mb-2">
+                                        <small class="text-muted">
+                                            <i class="bi bi-geo-alt me-1"></i>@scenario.AirportIcao
+                                        </small>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <span class="badge bg-@(GetDifficultyBadgeColor(scenario.Difficulty ?? "Basic"))">
+                                            @(scenario.Difficulty ?? "Basic")
+                                        </span>
+                                    </div>
+                                    
+                                    <button class="btn @(selectedScenario?.Id == scenario.Id ? "btn-primary" : "btn-outline-primary")" 
+                                            @onclick="() => SelectScenario(scenario)">
+                                        @(selectedScenario?.Id == scenario.Id ? "Selected" : "Select")
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+                
+                @if (selectedScenario != null)
+                {
+                    <div class="card mt-4">
+                        <div class="card-body">
+                            <h5 class="card-title">Selected Scenario: @selectedScenario.Name</h5>
+                            <p class="card-text">@(selectedScenario.Kind ?? "General training scenario")</p>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>Configuration</h6>
+                                    <ul class="list-unstyled">
+                                        <li><strong>Airport:</strong> @selectedScenario.AirportIcao</li>
+                                        <li><strong>Difficulty:</strong> @(selectedScenario.Difficulty ?? "Basic")</li>
+                                        <li><strong>Type:</strong> @(selectedScenario.Kind ?? "Training")</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>Training Focus</h6>
+                                    <p class="text-muted">
+                                        Practice standard phraseology and communication procedures for @selectedScenario.AirportIcao operations.
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between mt-4">
+                                <button class="btn btn-secondary" @onclick="GoBack">
+                                    <i class="bi bi-arrow-left me-2"></i>Back to Home
+                                </button>
+                                <button class="btn btn-success btn-lg" @onclick="StartSimulation">
+                                    <i class="bi bi-play-fill me-2"></i>Start Simulation
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Scenario>? scenarios;
+    private Scenario? selectedScenario;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        scenarios = await DbContext.Scenarios.ToListAsync();
+    }
+    
+    private void SelectScenario(Scenario scenario)
+    {
+        selectedScenario = scenario;
+    }
+    
+    private string GetDifficultyBadgeColor(string difficulty)
+    {
+        return difficulty.ToLower() switch
+        {
+            "basic" => "success",
+            "intermediate" => "warning",
+            "advanced" => "danger",
+            _ => "secondary"
+        };
+    }
+    
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/");
+    }
+    
+    private void StartSimulation()
+    {
+        if (selectedScenario != null)
+        {
+            Navigation.NavigateTo($"/simulation/{selectedScenario.Id}");
+        }
+    }
+}

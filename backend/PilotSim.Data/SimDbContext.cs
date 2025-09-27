@@ -15,6 +15,10 @@ public class SimDbContext : DbContext
     public DbSet<Session> Sessions { get; set; }
     public DbSet<Turn> Turns { get; set; }
     public DbSet<Metric> Metrics { get; set; }
+    public DbSet<Aircraft> Aircraft { get; set; }
+    public DbSet<TrafficProfile> TrafficProfiles { get; set; }
+    public DbSet<Airspace> Airspaces { get; set; }
+    public DbSet<AirspaceNotice> AirspaceNotices { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -30,6 +34,12 @@ public class SimDbContext : DbContext
             entity.Property(e => e.TowerFreq).HasColumnName("tower_freq");
             entity.Property(e => e.GroundFreq).HasColumnName("ground_freq");
             entity.Property(e => e.AppFreq).HasColumnName("app_freq");
+            entity.Property(e => e.Category).HasColumnName("category").HasDefaultValue("Major");
+            entity.Property(e => e.ElevationFt).HasColumnName("elevation_ft");
+            entity.Property(e => e.OperatingHours).HasColumnName("operating_hours");
+            entity.Property(e => e.HasFuel).HasColumnName("has_fuel").HasDefaultValue(true);
+            entity.Property(e => e.HasMaintenance).HasColumnName("has_maintenance").HasDefaultValue(false);
+            entity.Property(e => e.FuelTypes).HasColumnName("fuel_types");
             entity.ToTable("airport");
         });
 
@@ -130,6 +140,90 @@ public class SimDbContext : DbContext
                 .HasForeignKey(e => e.SessionId);
             
             entity.ToTable("metric");
+        });
+
+        // Aircraft configuration
+        modelBuilder.Entity<Aircraft>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Type).HasColumnName("type").IsRequired();
+            entity.Property(e => e.Category).HasColumnName("category").IsRequired();
+            entity.Property(e => e.Manufacturer).HasColumnName("manufacturer").IsRequired();
+            entity.Property(e => e.CallsignPrefix).HasColumnName("callsign_prefix").IsRequired();
+            entity.Property(e => e.CruiseSpeed).HasColumnName("cruise_speed");
+            entity.Property(e => e.ServiceCeiling).HasColumnName("service_ceiling");
+            entity.Property(e => e.WakeCategory).HasColumnName("wake_category");
+            entity.Property(e => e.EngineType).HasColumnName("engine_type");
+            entity.Property(e => e.SeatCapacity).HasColumnName("seat_capacity");
+            
+            entity.ToTable("aircraft");
+        });
+
+        // TrafficProfile configuration
+        modelBuilder.Entity<TrafficProfile>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.AircraftId).HasColumnName("aircraft_id");
+            entity.Property(e => e.AirportIcao).HasColumnName("airport_icao");
+            entity.Property(e => e.Callsign).HasColumnName("callsign").IsRequired();
+            entity.Property(e => e.FlightType).HasColumnName("flight_type");
+            entity.Property(e => e.Route).HasColumnName("route");
+            entity.Property(e => e.FrequencyWeight).HasColumnName("frequency_weight").HasDefaultValue(1.0);
+            
+            entity.HasOne(e => e.Aircraft)
+                .WithMany(a => a.TrafficProfiles)
+                .HasForeignKey(e => e.AircraftId);
+                
+            entity.HasOne(e => e.Airport)
+                .WithMany()
+                .HasForeignKey(e => e.AirportIcao)
+                .HasPrincipalKey(a => a.Icao);
+            
+            entity.ToTable("traffic_profile");
+        });
+
+        // Airspace configuration
+        modelBuilder.Entity<Airspace>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Name).HasColumnName("name").IsRequired();
+            entity.Property(e => e.Type).HasColumnName("type").IsRequired();
+            entity.Property(e => e.Class).HasColumnName("class").IsRequired();
+            entity.Property(e => e.LowerAltitude).HasColumnName("lower_altitude");
+            entity.Property(e => e.UpperAltitude).HasColumnName("upper_altitude");
+            entity.Property(e => e.Frequency).HasColumnName("frequency");
+            entity.Property(e => e.OperatingHours).HasColumnName("operating_hours");
+            entity.Property(e => e.Restrictions).HasColumnName("restrictions");
+            entity.Property(e => e.BoundaryJson).HasColumnName("boundary_json");
+            entity.Property(e => e.CenterLat).HasColumnName("center_lat");
+            entity.Property(e => e.CenterLon).HasColumnName("center_lon");
+            entity.Property(e => e.RadiusNm).HasColumnName("radius_nm");
+            entity.Property(e => e.AssociatedAirport).HasColumnName("associated_airport");
+            
+            entity.ToTable("airspace");
+        });
+
+        // AirspaceNotice configuration
+        modelBuilder.Entity<AirspaceNotice>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.AirspaceId).HasColumnName("airspace_id");
+            entity.Property(e => e.Type).HasColumnName("type").IsRequired();
+            entity.Property(e => e.Title).HasColumnName("title").IsRequired();
+            entity.Property(e => e.Description).HasColumnName("description").IsRequired();
+            entity.Property(e => e.EffectiveFrom).HasColumnName("effective_from");
+            entity.Property(e => e.EffectiveTo).HasColumnName("effective_to");
+            entity.Property(e => e.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+            
+            entity.HasOne(e => e.Airspace)
+                .WithMany(a => a.Notices)
+                .HasForeignKey(e => e.AirspaceId);
+            
+            entity.ToTable("airspace_notice");
         });
     }
 }

@@ -1,13 +1,22 @@
 ﻿@inherits LayoutComponentBase
+@inject IJSRuntime JSRuntime
 
-<div class="page">
+<div class="page @(isDarkMode ? "dark-theme" : "light-theme")">
     <div class="sidebar">
         <NavMenu />
     </div>
 
     <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+        <div class="top-row px-4 d-flex justify-content-between align-items-center">
+            <div class="breadcrumb-container">
+                <!-- Breadcrumb could be added here based on current page -->
+            </div>
+            <div class="d-flex align-items-center">
+                <small class="text-muted me-3">Professional Pilot Training System</small>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="ToggleDarkMode" title="Toggle Dark Mode">
+                    <i class="bi bi-@(isDarkMode ? "sun" : "moon")"></i>
+                </button>
+            </div>
         </div>
 
         <article class="content px-4">
@@ -17,7 +26,53 @@
 </div>
 
 <div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
+    <div class="d-flex align-items-center">
+        <i class="bi bi-exclamation-triangle me-2 text-warning"></i>
+        An unexpected error occurred.
+    </div>
+    <a href="." class="reload btn btn-primary btn-sm">
+        <i class="bi bi-arrow-clockwise me-1"></i>Reload
+    </a>
+    <span class="dismiss">
+        <i class="bi bi-x-lg"></i>
+    </span>
 </div>
+
+@code {
+    private bool isDarkMode = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Check for saved dark mode preference
+            try
+            {
+                var savedTheme = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "theme");
+                isDarkMode = savedTheme == "dark";
+                StateHasChanged();
+            }
+            catch
+            {
+                // Fallback if localStorage is not available
+                isDarkMode = false;
+            }
+        }
+    }
+
+    private async Task ToggleDarkMode()
+    {
+        isDarkMode = !isDarkMode;
+        
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "theme", isDarkMode ? "dark" : "light");
+        }
+        catch
+        {
+            // Fallback if localStorage is not available
+        }
+        
+        StateHasChanged();
+    }
+}

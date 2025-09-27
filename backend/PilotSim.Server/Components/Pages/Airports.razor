@@ -1,0 +1,209 @@
+@page "/airports"
+@using PilotSim.Data
+@using PilotSim.Data.Models
+@using Microsoft.EntityFrameworkCore
+@inject SimDbContext DbContext
+
+<PageTitle>Airports & Airspace - TrainMeATC</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="mb-2">
+            <i class="bi bi-building me-3"></i>Airports & Airspace
+        </h1>
+        <p class="text-muted mb-0">Comprehensive Australian aviation infrastructure</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-primary" @onclick="@(() => selectedCategory = null)">
+            <i class="bi bi-filter me-1"></i>All Categories
+        </button>
+        <div class="btn-group" role="group">
+            <button class="btn @(selectedCategory == "Major" ? "btn-primary" : "btn-outline-primary")" 
+                    @onclick="@(() => selectedCategory = "Major")">Major</button>
+            <button class="btn @(selectedCategory == "Regional" ? "btn-primary" : "btn-outline-primary")" 
+                    @onclick="@(() => selectedCategory = "Regional")">Regional</button>
+            <button class="btn @(selectedCategory == "GA" ? "btn-primary" : "btn-outline-primary")" 
+                    @onclick="@(() => selectedCategory = "GA")">GA</button>
+        </div>
+    </div>
+</div>
+
+@if (isLoading)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading airports...</span>
+        </div>
+        <p class="mt-3 text-muted">Loading airport data...</p>
+    </div>
+}
+else
+{
+    <div class="row">
+        @foreach (var airport in filteredAirports)
+        {
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0 fw-bold">@airport.Icao</h6>
+                            <small class="text-muted">@airport.Name</small>
+                        </div>
+                        <span class="badge @GetCategoryBadgeClass(airport.Category)">
+                            @airport.Category
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center mb-3">
+                            <div class="col-6">
+                                <small class="text-muted d-block">Elevation</small>
+                                <strong>@(airport.ElevationFt?.ToString() ?? "N/A") ft</strong>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted d-block">Operating</small>
+                                <strong>@(airport.OperatingHours ?? "N/A")</strong>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <h6 class="mb-2">
+                                <i class="bi bi-broadcast me-1"></i>Frequencies
+                            </h6>
+                            <div class="row g-2">
+                                @if (!string.IsNullOrEmpty(airport.TowerFreq))
+                                {
+                                    <div class="col-6">
+                                        <small class="text-muted">Tower</small><br>
+                                        <code class="text-primary">@airport.TowerFreq</code>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(airport.GroundFreq))
+                                {
+                                    <div class="col-6">
+                                        <small class="text-muted">Ground</small><br>
+                                        <code class="text-primary">@airport.GroundFreq</code>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(airport.AppFreq))
+                                {
+                                    <div class="col-6">
+                                        <small class="text-muted">Approach</small><br>
+                                        <code class="text-primary">@airport.AppFreq</code>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(airport.AtisFreq))
+                                {
+                                    <div class="col-6">
+                                        <small class="text-muted">ATIS</small><br>
+                                        <code class="text-primary">@airport.AtisFreq</code>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <h6 class="mb-2">
+                                <i class="bi bi-airplane-engines me-1"></i>Services
+                            </h6>
+                            <div class="d-flex flex-wrap gap-1">
+                                @if (airport.HasFuel)
+                                {
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-fuel-pump me-1"></i>Fuel
+                                    </span>
+                                }
+                                @if (airport.HasMaintenance)
+                                {
+                                    <span class="badge bg-info">
+                                        <i class="bi bi-wrench me-1"></i>Maintenance
+                                    </span>
+                                }
+                                @if (!string.IsNullOrEmpty(airport.FuelTypes))
+                                {
+                                    <span class="badge bg-secondary">@airport.FuelTypes</span>
+                                }
+                            </div>
+                        </div>
+
+                        @if (airport.Runways.Any())
+                        {
+                            <div>
+                                <h6 class="mb-2">
+                                    <i class="bi bi-arrows-angle-expand me-1"></i>Runways (@airport.Runways.Count)
+                                </h6>
+                                <div class="row g-1">
+                                    @foreach (var runway in airport.Runways.Take(4))
+                                    {
+                                        <div class="col-6">
+                                            <small class="d-flex justify-content-between">
+                                                <span class="fw-semibold">@runway.Ident</span>
+                                                <span class="text-muted">
+                                                    @(runway.LengthM?.ToString() ?? "N/A")m
+                                                    @if (runway.Ils) { <i class="bi bi-check-circle text-success" title="ILS Available"></i> }
+                                                </span>
+                                            </small>
+                                        </div>
+                                    }
+                                    @if (airport.Runways.Count > 4)
+                                    {
+                                        <div class="col-12">
+                                            <small class="text-muted">+@(airport.Runways.Count - 4) more...</small>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (!filteredAirports.Any())
+    {
+        <div class="text-center py-5">
+            <i class="bi bi-building display-1 text-muted"></i>
+            <h3 class="mt-3 text-muted">No airports found</h3>
+            <p class="text-muted">Try adjusting your category filter</p>
+        </div>
+    }
+}
+
+@code {
+    private List<Airport> airports = new();
+    private string? selectedCategory = null;
+    private bool isLoading = true;
+
+    private IEnumerable<Airport> filteredAirports =>
+        selectedCategory == null 
+            ? airports 
+            : airports.Where(a => a.Category == selectedCategory);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            airports = await DbContext.Airports
+                .Include(a => a.Runways)
+                .OrderBy(a => a.Category)
+                .ThenBy(a => a.Name)
+                .ToListAsync();
+        }
+        catch (Exception)
+        {
+            airports = new List<Airport>();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private string GetCategoryBadgeClass(string category) => category switch
+    {
+        "Major" => "bg-primary",
+        "Regional" => "bg-warning",
+        "GA" => "bg-success",
+        _ => "bg-secondary"
+    };
+}

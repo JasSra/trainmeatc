@@ -1,0 +1,405 @@
+@page "/simulation/{scenarioId:int}"
+@using Microsoft.AspNetCore.Components
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.SignalR.Client
+@using PilotSim.Data
+@using PilotSim.Data.Models
+@using System.Net.Http.Json
+@using System.Text.Json
+@inject NavigationManager Navigation
+@inject SimDbContext DbContext
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
+
+<PageTitle>Live Simulation - TrainMeATC</PageTitle>
+
+<div class="container-fluid vh-100 p-0">
+    @if (scenario == null)
+    {
+        <div class="d-flex justify-content-center align-items-center h-100">
+            <div class="text-center">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p>Loading scenario...</p>
+            </div>
+        </div>
+    }
+    else if (currentSession == null)
+    {
+        <div class="d-flex justify-content-center align-items-center h-100">
+            <div class="text-center">
+                <h3>Ready to Begin?</h3>
+                <p>Scenario: @scenario.Name (@scenario.AirportIcao)</p>
+                <button class="btn btn-success btn-lg" @onclick="StartSession">
+                    <i class="bi bi-play-fill me-2"></i>Start Session
+                </button>
+                <button class="btn btn-secondary ms-2" @onclick="GoBack">
+                    <i class="bi bi-arrow-left me-2"></i>Back to Scenarios
+                </button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Main Simulation Interface -->
+        <div class="row g-0 h-100">
+            <!-- Left Panel: Microphone and Transcript -->
+            <div class="col-md-6 d-flex flex-column">
+                <!-- Microphone Capture Section -->
+                <div class="bg-primary text-white p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-mic me-2"></i>Push to Talk
+                        </h5>
+                        <div>
+                            <span class="badge bg-light text-dark">Session: @currentSession.Id</span>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button class="btn @(isRecording ? "btn-danger" : "btn-light") btn-lg"
+                                @onmousedown="StartRecording"
+                                @onmouseup="StopRecording"
+                                @ontouchstart="StartRecording"
+                                @ontouchend="StopRecording"
+                                disabled="@isBlocked">
+                            <i class="bi bi-@(isRecording ? "mic-fill" : "mic") me-2"></i>
+                            @(isRecording ? "Recording..." : (isBlocked ? "Blocked" : "Hold to Talk"))
+                        </button>
+                        
+                        @if (audioLevel > 0)
+                        {
+                            <div class="progress mt-2" style="height: 8px;">
+                                <div class="progress-bar bg-warning" 
+                                     style="width: @(audioLevel * 100)%"></div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Transcript Section -->
+                <div class="flex-grow-1 p-3 bg-light overflow-auto">
+                    <h6>Transcript</h6>
+                    <div id="transcript-container" class="border rounded p-3 bg-white" style="min-height: 200px;">
+                        @if (!string.IsNullOrEmpty(currentTranscript))
+                        {
+                            <div class="transcript-text">
+                                @if (isPartialTranscript)
+                                {
+                                    <span class="text-muted">@currentTranscript</span>
+                                }
+                                else
+                                {
+                                    <span>@currentTranscript</span>
+                                }
+                            </div>
+                        }
+                        
+                        @foreach (var turn in completedTurns)
+                        {
+                            <div class="turn-item border-bottom pb-2 mb-2">
+                                <small class="text-muted">Turn @turn.Idx:</small>
+                                <div>@turn.UserTranscript</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Retry Bar (shown when blocked) -->
+                @if (isBlocked && !string.IsNullOrEmpty(blockReason))
+                {
+                    <div class="bg-warning text-dark p-3">
+                        <h6><i class="bi bi-exclamation-triangle me-2"></i>Instructor Feedback</h6>
+                        <p class="mb-2">@blockReason</p>
+                        <button class="btn btn-dark btn-sm" @onclick="ClearBlock">
+                            <i class="bi bi-check me-1"></i>Acknowledge
+                        </button>
+                    </div>
+                }
+            </div>
+
+            <!-- Right Panel: ATC and Score -->
+            <div class="col-md-6 d-flex flex-column">
+                <!-- ATC Panel -->
+                <div class="bg-success text-white p-3">
+                    <h5 class="mb-0">
+                        <i class="bi bi-tower me-2"></i>ATC (@(scenario.AirportIcao ?? "UNKNOWN"))
+                    </h5>
+                    
+                    @if (!string.IsNullOrEmpty(lastAtcTransmission))
+                    {
+                        <div class="mt-3">
+                            <div class="card bg-light text-dark">
+                                <div class="card-body">
+                                    <p class="mb-2">@lastAtcTransmission</p>
+                                    @if (!string.IsNullOrEmpty(lastTtsAudioPath))
+                                    {
+                                        <button class="btn btn-sm btn-outline-success" @onclick="PlayAtcAudio">
+                                            <i class="bi bi-play-fill me-1"></i>Play Audio
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <!-- Score Strip -->
+                <div class="bg-info text-white p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">Score</h6>
+                        <span class="h4 mb-0">@totalScore</span>
+                    </div>
+                    
+                    @if (scoreDelta != 0)
+                    {
+                        <div class="mt-2">
+                            <span class="badge bg-@(scoreDelta > 0 ? "success" : "danger")">
+                                @(scoreDelta > 0 ? "+" : "")@scoreDelta
+                            </span>
+                        </div>
+                    }
+                </div>
+
+                <!-- Instructions/Help -->
+                <div class="flex-grow-1 p-3 bg-light overflow-auto">
+                    <h6>Instructions</h6>
+                    <div class="small">
+                        <ul class="list-unstyled">
+                            <li class="mb-2">
+                                <i class="bi bi-mic me-2"></i>
+                                Hold the microphone button to record your transmission
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-headphones me-2"></i>
+                                Listen carefully to ATC instructions
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-chat-text me-2"></i>
+                                Use standard aviation phraseology
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                Pay attention to instructor feedback
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <button class="btn btn-outline-danger btn-sm" @onclick="EndSession">
+                            <i class="bi bi-stop-fill me-1"></i>End Session
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Audio element for TTS playback -->
+<audio id="tts-audio" preload="none"></audio>
+
+@code {
+    [Parameter] public int ScenarioId { get; set; }
+    
+    private Scenario? scenario;
+    private Session? currentSession;
+    private List<Turn> completedTurns = new();
+    
+    private HubConnection? hubConnection;
+    private bool isRecording = false;
+    private bool isBlocked = false;
+    private string? blockReason;
+    private string currentTranscript = "";
+    private bool isPartialTranscript = false;
+    private string? lastAtcTransmission;
+    private string? lastTtsAudioPath;
+    private int totalScore = 0;
+    private int scoreDelta = 0;
+    private double audioLevel = 0;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        // Load scenario
+        scenario = await DbContext.Scenarios
+            .Include(s => s.Airport)
+            .FirstOrDefaultAsync(s => s.Id == ScenarioId);
+            
+        if (scenario == null)
+        {
+            Navigation.NavigateTo("/scenarios");
+            return;
+        }
+        
+        // Initialize SignalR connection
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/hubs/live"))
+            .Build();
+            
+        // Set up SignalR event handlers
+        hubConnection.On<string>("partialTranscript", (transcript) =>
+        {
+            currentTranscript = transcript;
+            isPartialTranscript = true;
+            InvokeAsync(StateHasChanged);
+        });
+        
+        hubConnection.On<string>("instructorVerdict", async (verdictJson) =>
+        {
+            var verdict = JsonSerializer.Deserialize<dynamic>(verdictJson);
+            // Handle instructor verdict - for now just clear partial transcript
+            isPartialTranscript = false;
+            await InvokeAsync(StateHasChanged);
+        });
+        
+        hubConnection.On<string>("atcTransmission", (transmission) =>
+        {
+            lastAtcTransmission = transmission;
+            InvokeAsync(StateHasChanged);
+        });
+        
+        hubConnection.On<string>("ttsReady", (audioPath) =>
+        {
+            lastTtsAudioPath = audioPath;
+            InvokeAsync(StateHasChanged);
+        });
+        
+        hubConnection.On<int>("scoreTick", (delta) =>
+        {
+            scoreDelta = delta;
+            totalScore += delta;
+            InvokeAsync(StateHasChanged);
+            
+            // Clear score delta after a delay
+            Task.Delay(3000).ContinueWith(_ =>
+            {
+                scoreDelta = 0;
+                InvokeAsync(StateHasChanged);
+            });
+        });
+        
+        await hubConnection.StartAsync();
+    }
+    
+    private async Task StartSession()
+    {
+        if (scenario == null) return;
+        
+        try
+        {
+            var sessionRequest = new
+            {
+                ScenarioId = scenario.Id,
+                Difficulty = scenario.Difficulty ?? "Basic"
+            };
+            
+            var response = await Http.PostAsJsonAsync("/api/session", sessionRequest);
+            if (response.IsSuccessStatusCode)
+            {
+                var sessionData = await response.Content.ReadFromJsonAsync<dynamic>();
+                // For now, create a simple session object - in real implementation, 
+                // the API should return the session details
+                currentSession = new Session 
+                { 
+                    Id = Random.Shared.Next(1000, 9999),
+                    ScenarioId = scenario.Id,
+                    StartedUtc = DateTime.UtcNow.ToString("O")
+                };
+            }
+        }
+        catch (Exception)
+        {
+            // Handle error - for now just continue with mock session
+            currentSession = new Session 
+            { 
+                Id = Random.Shared.Next(1000, 9999),
+                ScenarioId = scenario.Id,
+                StartedUtc = DateTime.UtcNow.ToString("O")
+            };
+        }
+    }
+    
+    private async Task StartRecording()
+    {
+        if (isBlocked) return;
+        
+        isRecording = true;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("startAudioCapture");
+        }
+        catch (Exception ex)
+        {
+            // Handle JS interop error
+            Console.WriteLine($"Error starting recording: {ex.Message}");
+        }
+    }
+    
+    private async Task StopRecording()
+    {
+        if (!isRecording) return;
+        
+        isRecording = false;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("stopAudioCapture");
+        }
+        catch (Exception ex)
+        {
+            // Handle JS interop error
+            Console.WriteLine($"Error stopping recording: {ex.Message}");
+        }
+    }
+    
+    private void ClearBlock()
+    {
+        isBlocked = false;
+        blockReason = null;
+    }
+    
+    private async Task PlayAtcAudio()
+    {
+        if (!string.IsNullOrEmpty(lastTtsAudioPath))
+        {
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("playAudio", "tts-audio", lastTtsAudioPath);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error playing audio: {ex.Message}");
+            }
+        }
+    }
+    
+    private async Task EndSession()
+    {
+        if (currentSession != null)
+        {
+            try
+            {
+                await Http.PostAsJsonAsync($"/api/session/{currentSession.Id}/end", new { });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error ending session: {ex.Message}");
+            }
+        }
+        
+        Navigation.NavigateTo($"/debrief/{currentSession?.Id}");
+    }
+    
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/scenarios");
+    }
+    
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}

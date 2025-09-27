@@ -12,6 +12,12 @@ public class Airport
     public string? TowerFreq { get; set; }
     public string? GroundFreq { get; set; }
     public string? AppFreq { get; set; }
+    public string Category { get; set; } = "Major"; // "Major", "Regional", "GA"
+    public int? ElevationFt { get; set; }
+    public string? OperatingHours { get; set; }
+    public bool HasFuel { get; set; } = true;
+    public bool HasMaintenance { get; set; } = false;
+    public string? FuelTypes { get; set; } // "100LL, JetA1, Diesel"
     
     public ICollection<Runway> Runways { get; set; } = new List<Runway>();
     public ICollection<Scenario> Scenarios { get; set; } = new List<Scenario>();
@@ -85,4 +91,68 @@ public class Metric
     public string? TUtc { get; set; }
     
     public Session? Session { get; set; }
+}
+
+public class Aircraft
+{
+    public int Id { get; set; }
+    public string Type { get; set; } = string.Empty; // e.g., "C172", "B737", "A380"
+    public string Category { get; set; } = string.Empty; // "GA", "Medium", "Heavy"
+    public string Manufacturer { get; set; } = string.Empty;
+    public string CallsignPrefix { get; set; } = string.Empty; // e.g., "VH-" for Australia
+    public int? CruiseSpeed { get; set; } // Knots
+    public int? ServiceCeiling { get; set; } // Feet
+    public string? WakeCategory { get; set; } // "Light", "Medium", "Heavy", "Super"
+    public string? EngineType { get; set; } // "Piston", "Turboprop", "Jet"
+    public int? SeatCapacity { get; set; }
+    
+    public ICollection<TrafficProfile> TrafficProfiles { get; set; } = new List<TrafficProfile>();
+}
+
+public class TrafficProfile
+{
+    public int Id { get; set; }
+    public int AircraftId { get; set; }
+    public string AirportIcao { get; set; } = string.Empty;
+    public string Callsign { get; set; } = string.Empty; // e.g., "VH-ABC", "QFA123"
+    public string? FlightType { get; set; } // "Training", "Charter", "Commercial", "Private"
+    public string? Route { get; set; } // Typical route for this aircraft
+    public double FrequencyWeight { get; set; } = 1.0; // How often this appears in scenarios
+    
+    public Aircraft Aircraft { get; set; } = null!;
+    public Airport Airport { get; set; } = null!;
+}
+
+public class Airspace
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Type { get; set; } = string.Empty; // "CTA", "CTR", "TMA", "Restricted", "Prohibited", "Danger"
+    public string Class { get; set; } = string.Empty; // "A", "B", "C", "D", "E", "G"
+    public int? LowerAltitude { get; set; } // Feet
+    public int? UpperAltitude { get; set; } // Feet
+    public string? Frequency { get; set; }
+    public string? OperatingHours { get; set; }
+    public string? Restrictions { get; set; }
+    public string? BoundaryJson { get; set; } // JSON coordinates for boundary polygon
+    public double? CenterLat { get; set; }
+    public double? CenterLon { get; set; }
+    public double? RadiusNm { get; set; } // For circular airspace
+    public string? AssociatedAirport { get; set; } // ICAO code if associated with an airport
+    
+    public ICollection<AirspaceNotice> Notices { get; set; } = new List<AirspaceNotice>();
+}
+
+public class AirspaceNotice
+{
+    public int Id { get; set; }
+    public int AirspaceId { get; set; }
+    public string Type { get; set; } = string.Empty; // "NOTAM", "Warning", "Restriction"
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public DateTime? EffectiveFrom { get; set; }
+    public DateTime? EffectiveTo { get; set; }
+    public bool IsActive { get; set; } = true;
+    
+    public Airspace Airspace { get; set; } = null!;
 }

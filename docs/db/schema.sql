@@ -7,7 +7,13 @@ create table if not exists airport (
   atis_freq text,
   tower_freq text,
   ground_freq text,
-  app_freq text
+  app_freq text,
+  category text default 'Major',
+  elevation_ft integer,
+  operating_hours text,
+  has_fuel boolean default true,
+  has_maintenance boolean default false,
+  fuel_types text
 );
 
 create table if not exists runway (
@@ -61,4 +67,58 @@ create table if not exists metric (
   k text,
   v real,
   t_utc text
+);
+
+create table if not exists aircraft (
+  id integer primary key autoincrement,
+  type text not null,
+  category text not null,
+  manufacturer text not null,
+  callsign_prefix text not null,
+  cruise_speed integer,
+  service_ceiling integer,
+  wake_category text,
+  engine_type text,
+  seat_capacity integer
+);
+
+create table if not exists traffic_profile (
+  id integer primary key autoincrement,
+  aircraft_id integer not null,
+  airport_icao text not null,
+  callsign text not null,
+  flight_type text,
+  route text,
+  frequency_weight real default 1.0,
+  foreign key(aircraft_id) references aircraft(id),
+  foreign key(airport_icao) references airport(icao)
+);
+
+create table if not exists airspace (
+  id integer primary key autoincrement,
+  name text not null,
+  type text not null,
+  class text not null,
+  lower_altitude integer,
+  upper_altitude integer,
+  frequency text,
+  operating_hours text,
+  restrictions text,
+  boundary_json text,
+  center_lat real,
+  center_lon real,
+  radius_nm real,
+  associated_airport text
+);
+
+create table if not exists airspace_notice (
+  id integer primary key autoincrement,
+  airspace_id integer not null,
+  type text not null,
+  title text not null,
+  description text not null,
+  effective_from text,
+  effective_to text,
+  is_active boolean default true,
+  foreign key(airspace_id) references airspace(id)
 );
