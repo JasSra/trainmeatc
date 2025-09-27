@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # Development database
+  postgres-dev:
+    image: postgres:15-alpine
+    container_name: trainmeatc-postgres-dev
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: trainmeatc_dev
+      POSTGRES_USER: dev
+      POSTGRES_PASSWORD: dev123
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - trainmeatc-dev
+
+  # Redis for development
+  redis-dev:
+    image: redis:7.2-alpine
+    container_name: trainmeatc-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-dev-data:/data
+    restart: unless-stopped
+    networks:
+      - trainmeatc-dev
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+
+  # Development application (when not running locally)
+  trainmeatc-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: build
+    container_name: trainmeatc-app-dev
+    ports:
+      - "5179:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__SimDb=/app/data/pilotsim.db
+      - ConnectionStrings__Redis=redis-dev:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    volumes:
+      - ./data:/app/data
+      - ./audio:/app/wwwroot/audio
+      - ./backend:/src:ro
+    depends_on:
+      - redis-dev
+    restart: unless-stopped
+    networks:
+      - trainmeatc-dev
+    profiles:
+      - dev-container
+
+volumes:
+  postgres-dev-data:
+    driver: local
+  redis-dev-data:
+    driver: local
+
+networks:
+  trainmeatc-dev:
+    driver: bridge

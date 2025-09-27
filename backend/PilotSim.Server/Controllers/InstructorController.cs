@@ -22,6 +22,10 @@ public class InstructorController : ControllerBase
         if (string.IsNullOrEmpty(request.Transcript))
             return BadRequest("Transcript is required");
 
+        // Validate input size
+        if (request.Transcript.Length > 5000)
+            return BadRequest("Transcript too long. Maximum 5000 characters allowed");
+
         var result = await _instructorService.ScoreAsync(request.Transcript, request.State, request.Difficulty, cancellationToken);
         return Ok(result);
     }

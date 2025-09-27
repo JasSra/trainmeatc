@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # Main application
+  trainmeatc:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: trainmeatc-app
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__SimDb=/app/data/pilotsim.db
+      - ConnectionStrings__Redis=redis:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    volumes:
+      - ./data:/app/data
+      - ./audio:/app/wwwroot/audio
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - trainmeatc-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Redis for caching and session storage
+  redis:
+    image: redis:7.2-alpine
+    container_name: trainmeatc-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - trainmeatc-network
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Nginx reverse proxy (optional, for production)
+  nginx:
+    image: nginx:alpine
+    container_name: trainmeatc-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - trainmeatc
+    restart: unless-stopped
+    networks:
+      - trainmeatc-network
+    profiles:
+      - production
+
+volumes:
+  redis-data:
+    driver: local
+
+networks:
+  trainmeatc-network:
+    driver: bridge
