@@ -86,3 +86,33 @@ public class Metric
     
     public Session? Session { get; set; }
 }
+
+public class Aircraft
+{
+    public int Id { get; set; }
+    public string Type { get; set; } = string.Empty; // e.g., "C172", "B737", "A380"
+    public string Category { get; set; } = string.Empty; // "GA", "Medium", "Heavy"
+    public string Manufacturer { get; set; } = string.Empty;
+    public string CallsignPrefix { get; set; } = string.Empty; // e.g., "VH-" for Australia
+    public int? CruiseSpeed { get; set; } // Knots
+    public int? ServiceCeiling { get; set; } // Feet
+    public string? WakeCategory { get; set; } // "Light", "Medium", "Heavy", "Super"
+    public string? EngineType { get; set; } // "Piston", "Turboprop", "Jet"
+    public int? SeatCapacity { get; set; }
+    
+    public ICollection<TrafficProfile> TrafficProfiles { get; set; } = new List<TrafficProfile>();
+}
+
+public class TrafficProfile
+{
+    public int Id { get; set; }
+    public int AircraftId { get; set; }
+    public string AirportIcao { get; set; } = string.Empty;
+    public string Callsign { get; set; } = string.Empty; // e.g., "VH-ABC", "QFA123"
+    public string? FlightType { get; set; } // "Training", "Charter", "Commercial", "Private"
+    public string? Route { get; set; } // Typical route for this aircraft
+    public double FrequencyWeight { get; set; } = 1.0; // How often this appears in scenarios
+    
+    public Aircraft Aircraft { get; set; } = null!;
+    public Airport Airport { get; set; } = null!;
+}

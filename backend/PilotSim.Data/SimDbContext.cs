@@ -15,6 +15,8 @@ public class SimDbContext : DbContext
     public DbSet<Session> Sessions { get; set; }
     public DbSet<Turn> Turns { get; set; }
     public DbSet<Metric> Metrics { get; set; }
+    public DbSet<Aircraft> Aircraft { get; set; }
+    public DbSet<TrafficProfile> TrafficProfiles { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -130,6 +132,48 @@ public class SimDbContext : DbContext
                 .HasForeignKey(e => e.SessionId);
             
             entity.ToTable("metric");
+        });
+
+        // Aircraft configuration
+        modelBuilder.Entity<Aircraft>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Type).HasColumnName("type").IsRequired();
+            entity.Property(e => e.Category).HasColumnName("category").IsRequired();
+            entity.Property(e => e.Manufacturer).HasColumnName("manufacturer").IsRequired();
+            entity.Property(e => e.CallsignPrefix).HasColumnName("callsign_prefix").IsRequired();
+            entity.Property(e => e.CruiseSpeed).HasColumnName("cruise_speed");
+            entity.Property(e => e.ServiceCeiling).HasColumnName("service_ceiling");
+            entity.Property(e => e.WakeCategory).HasColumnName("wake_category");
+            entity.Property(e => e.EngineType).HasColumnName("engine_type");
+            entity.Property(e => e.SeatCapacity).HasColumnName("seat_capacity");
+            
+            entity.ToTable("aircraft");
+        });
+
+        // TrafficProfile configuration
+        modelBuilder.Entity<TrafficProfile>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.AircraftId).HasColumnName("aircraft_id");
+            entity.Property(e => e.AirportIcao).HasColumnName("airport_icao");
+            entity.Property(e => e.Callsign).HasColumnName("callsign").IsRequired();
+            entity.Property(e => e.FlightType).HasColumnName("flight_type");
+            entity.Property(e => e.Route).HasColumnName("route");
+            entity.Property(e => e.FrequencyWeight).HasColumnName("frequency_weight").HasDefaultValue(1.0);
+            
+            entity.HasOne(e => e.Aircraft)
+                .WithMany(a => a.TrafficProfiles)
+                .HasForeignKey(e => e.AircraftId);
+                
+            entity.HasOne(e => e.Airport)
+                .WithMany()
+                .HasForeignKey(e => e.AirportIcao)
+                .HasPrincipalKey(a => a.Icao);
+            
+            entity.ToTable("traffic_profile");
         });
     }
 }
