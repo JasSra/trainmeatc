@@ -19,26 +19,21 @@ builder.Services.AddSignalR();
 builder.Services.AddDbContext<SimDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("SimDb")));
 
-// Add OpenAI client
+// Add OpenAI client - required for all service implementations
 var openAiApiKey = builder.Configuration["OPENAI_API_KEY"] ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY");
-if (!string.IsNullOrEmpty(openAiApiKey))
+if (string.IsNullOrEmpty(openAiApiKey))
 {
-    builder.Services.AddSingleton(new OpenAIClient(openAiApiKey));
-    
-    // Add OpenAI service implementations
-    builder.Services.AddSingleton<ISttService, OpenAiSttService>();
-    builder.Services.AddScoped<IInstructorService, OpenAiInstructorService>();
-    builder.Services.AddScoped<IAtcService, OpenAiAtcService>();
-    builder.Services.AddSingleton<ITtsService, OpenAiTtsService>();
+    throw new InvalidOperationException(
+        "OPENAI_API_KEY is required. Please set it in configuration or as an environment variable.");
 }
-else
-{
-    // Fallback to stub implementations if no API key
-    builder.Services.AddSingleton<ISttService, StubSttService>();
-    builder.Services.AddScoped<IInstructorService, StubInstructorService>();
-    builder.Services.AddScoped<IAtcService, StubAtcService>();
-    builder.Services.AddSingleton<ITtsService, StubTtsService>();
-}
+
+builder.Services.AddSingleton(new OpenAIClient(openAiApiKey));
+
+// Add OpenAI service implementations
+builder.Services.AddSingleton<ISttService, OpenAiSttService>();
+builder.Services.AddScoped<IInstructorService, OpenAiInstructorService>();
+builder.Services.AddScoped<IAtcService, OpenAiAtcService>();
+builder.Services.AddSingleton<ITtsService, OpenAiTtsService>();
 
 // Add API controllers
 builder.Services.AddControllers();
