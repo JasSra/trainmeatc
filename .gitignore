@@ -1,0 +1,10 @@
+bin/
+obj/
+.vscode/
+.idea/
+app_data/
+*.db
+*.db-shm
+*.db-wal
+publish/
+.env
