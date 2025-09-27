@@ -156,6 +156,11 @@ async function sendAudioToServer(audioBlob) {
         formData.append('audio', audioBlob, 'recording.webm');
         formData.append('biasPrompt', 'aviation communication pilot ATC radio');
         
+        // Try to get sessionId from window if available
+        if (window.currentSessionId) {
+            formData.append('sessionId', window.currentSessionId);
+        }
+        
         const response = await fetch('/api/stt', {
             method: 'POST',
             body: formData

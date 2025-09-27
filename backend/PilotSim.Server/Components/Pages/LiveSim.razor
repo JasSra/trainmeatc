@@ -392,26 +392,42 @@
             var response = await Http.PostAsJsonAsync("/api/session", sessionRequest);
             if (response.IsSuccessStatusCode)
             {
-                var sessionData = await response.Content.ReadFromJsonAsync<dynamic>();
-                // For now, create a simple session object - in real implementation, 
-                // the API should return the session details
+                var sessionId = await response.Content.ReadFromJsonAsync<int>();
                 currentSession = new Session 
                 { 
-                    Id = Random.Shared.Next(1000, 9999),
+                    Id = sessionId,
                     ScenarioId = scenario.Id,
-                    StartedUtc = DateTime.UtcNow.ToString("O")
+                    StartedUtc = DateTime.UtcNow.ToString("O"),
+                    Difficulty = scenario.Difficulty ?? "Basic"
                 };
+                
+                // Join the SignalR group for this session
+                if (hubConnection != null && hubConnection.State == HubConnectionState.Connected)
+                {
+                    await hubConnection.InvokeAsync("JoinSession", sessionId.ToString());
+                }
+                
+                // Set up audio callbacks
+                await SetupAudioCallbacks();
+                
+                StateHasChanged();
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Handle error - for now just continue with mock session
+            Console.WriteLine($"Error starting session: {ex.Message}");
+            // Handle error - create a fallback session for testing
             currentSession = new Session 
             { 
                 Id = Random.Shared.Next(1000, 9999),
                 ScenarioId = scenario.Id,
-                StartedUtc = DateTime.UtcNow.ToString("O")
+                StartedUtc = DateTime.UtcNow.ToString("O"),
+                Difficulty = scenario.Difficulty ?? "Basic"
             };
+            
+            // Still set up audio callbacks for testing
+            await SetupAudioCallbacks();
+            StateHasChanged();
         }
     }
     
@@ -512,38 +528,78 @@
 
     private async Task SetupAudioCallbacks()
     {
+        // Set the current session ID in JavaScript for audio processing
+        if (currentSession != null)
+        {
+            await JSRuntime.InvokeVoidAsync("eval", $"window.currentSessionId = '{currentSession.Id}';");
+        }
+        
         // Set up JavaScript callbacks for audio level updates and STT results
         await JSRuntime.InvokeVoidAsync("eval", @"
             window.blazorAudioLevelCallback = (level) => {
-                DotNet.invokeMethodAsync('PilotSim.Server', 'UpdateAudioLevel', level);
+                if (window.blazorInstance) {
+                    window.blazorInstance.invokeMethodAsync('UpdateAudioLevelInstance', level);
+                }
             };
             
             window.blazorSttCallback = (text, confidence) => {
-                DotNet.invokeMethodAsync('PilotSim.Server', 'ProcessSttResult', text, confidence);
+                if (window.blazorInstance) {
+                    window.blazorInstance.invokeMethodAsync('ProcessSttResultInstance', text, confidence);
+                }
             };
             
             window.blazorSttErrorCallback = (error) => {
-                DotNet.invokeMethodAsync('PilotSim.Server', 'HandleSttError', error);
+                if (window.blazorInstance) {
+                    window.blazorInstance.invokeMethodAsync('HandleSttErrorInstance', error);
+                }
             };
         ");
+        
+        // Store this component instance for callbacks
+        await JSRuntime.InvokeVoidAsync("eval", "window.blazorInstance = DotNet.createJSObjectReference(arguments[0]);", DotNetObjectReference.Create(this));
+    }
+
+    [JSInvokable]
+    public void UpdateAudioLevelInstance(double level)
+    {
+        audioLevel = level;
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]  
+    public void ProcessSttResultInstance(string text, double confidence)
+    {
+        currentTranscript = text;
+        isPartialTranscript = confidence < 0.8;
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public void HandleSttErrorInstance(string error)
+    {
+        blockReason = $"Speech recognition error: {error}";
+        isBlocked = true;
+        InvokeAsync(StateHasChanged);
     }
 
     [JSInvokable]
     public static void UpdateAudioLevel(double level)
     {
-        // This would be handled by the specific instance, but for now we'll handle it in the recording methods
+        // Legacy static method - kept for backward compatibility
+        Console.WriteLine($"Audio Level: {level * 100:F0}%");
     }
 
     [JSInvokable]  
     public static void ProcessSttResult(string text, double confidence)
     {
-        // This would be handled by the specific instance through SignalR
+        // Legacy static method - kept for backward compatibility
         Console.WriteLine($"STT Result: {text} (confidence: {confidence})");
     }
 
     [JSInvokable]
     public static void HandleSttError(string error)
     {
+        // Legacy static method - kept for backward compatibility
         Console.WriteLine($"STT Error: {error}");
     }
     
