@@ -1,0 +1,160 @@
+@inherits LayoutComponentBase
+@inject IJSRuntime JSRuntime
+
+<div class="page @(isDarkMode ? "dark-theme" : "light-theme")">
+    <!-- Top Navigation Bar -->
+    <nav class="navbar navbar-expand-md navbar-dark bg-aviation-primary shadow-sm">
+        <div class="container-fluid">
+            <!-- Brand/Logo -->
+            <a class="navbar-brand d-flex align-items-center" href="">
+                <div class="brand-logo me-3">
+                    <i class="bi bi-airplane-fill text-aviation-accent" style="font-size: 1.8rem;"></i>
+                </div>
+                <div class="brand-text">
+                    <div class="brand-name">TrainMeATC</div>
+                    <div class="brand-tagline">Professional Aviation Training</div>
+                </div>
+            </a>
+
+            <!-- Mobile Menu Toggle -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <!-- Navigation Items -->
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                            <i class="bi bi-house-door me-1"></i>Home
+                        </NavLink>
+                    </li>
+                    <li class="nav-item">
+                        <NavLink class="nav-link" href="scenarios">
+                            <i class="bi bi-map me-1"></i>Training Scenarios
+                        </NavLink>
+                    </li>
+                    <li class="nav-item">
+                        <NavLink class="nav-link" href="airports">
+                            <i class="bi bi-building me-1"></i>Airports & Airspace
+                        </NavLink>
+                    </li>
+                    <li class="nav-item">
+                        <NavLink class="nav-link" href="aircraft">
+                            <i class="bi bi-airplane-engines me-1"></i>Aircraft Profiles
+                        </NavLink>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-book me-1"></i>Resources
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-dark">
+                            <li><a class="dropdown-item" href="https://www.airservicesaustralia.com/naips/" target="_blank">
+                                <i class="bi bi-globe me-2"></i>NAIPS (Notice to Airmen)
+                            </a></li>
+                            <li><a class="dropdown-item" href="http://www.bom.gov.au/aviation/forecasts/taf/" target="_blank">
+                                <i class="bi bi-cloud-drizzle me-2"></i>TAF (Terminal Aerodrome Forecast)
+                            </a></li>
+                            <li><a class="dropdown-item" href="http://www.bom.gov.au/aviation/forecasts/gaf/" target="_blank">
+                                <i class="bi bi-cloud-sun me-2"></i>GAF (Graphical Area Forecast)
+                            </a></li>
+                            <li><a class="dropdown-item" href="https://www.airservicesaustralia.com/aip/aip.asp" target="_blank">
+                                <i class="bi bi-file-text me-2"></i>AIP (Aeronautical Information)
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="/documentation">
+                                <i class="bi bi-question-circle me-2"></i>Training Documentation
+                            </a></li>
+                        </ul>
+                    </li>
+                </ul>
+
+                <!-- Right Side Items -->
+                <div class="d-flex align-items-center">
+                    <span class="text-light me-3 d-none d-md-inline">
+                        <small><i class="bi bi-shield-check me-1"></i>CASA Approved Training</small>
+                    </span>
+                    <button class="btn btn-sm btn-outline-light" @onclick="ToggleDarkMode" title="Toggle Dark Mode">
+                        <i class="bi bi-@(isDarkMode ? "sun" : "moon")"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow-1">
+        <div class="container-fluid px-4 py-3">
+            @Body
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-aviation-secondary text-light py-3 mt-auto">
+        <div class="container-fluid">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <small>&copy; @DateTime.Now.Year TrainMeATC. Professional Pilot Training System.</small>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <small>
+                        <i class="bi bi-info-circle me-1"></i>
+                        For training purposes only - Always refer to official CASA/AIP publications
+                    </small>
+                </div>
+            </div>
+        </div>
+    </footer>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    <div class="d-flex align-items-center">
+        <i class="bi bi-exclamation-triangle me-2 text-warning"></i>
+        An unexpected error occurred.
+    </div>
+    <a href="." class="reload btn btn-primary btn-sm">
+        <i class="bi bi-arrow-clockwise me-1"></i>Reload
+    </a>
+    <span class="dismiss">
+        <i class="bi bi-x-lg"></i>
+    </span>
+</div>
+
+@code {
+    private bool isDarkMode = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Check for saved dark mode preference
+            try
+            {
+                var savedTheme = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "theme");
+                isDarkMode = savedTheme == "dark";
+                StateHasChanged();
+            }
+            catch
+            {
+                // Fallback if localStorage is not available
+                isDarkMode = false;
+            }
+        }
+    }
+
+    private async Task ToggleDarkMode()
+    {
+        isDarkMode = !isDarkMode;
+        
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "theme", isDarkMode ? "dark" : "light");
+        }
+        catch
+        {
+            // Fallback if localStorage is not available
+        }
+        
+        StateHasChanged();
+    }
+}

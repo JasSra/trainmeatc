@@ -107,9 +107,9 @@ function monitorAudioLevel() {
     const rms = Math.sqrt(sum / dataArray.length);
     const level = rms / 255; // Normalize to 0-1
     
-    // Update level indicator (if callback is available)
-    if (window.updateAudioLevel) {
-        window.updateAudioLevel(level);
+    // Update level indicator via Blazor callback
+    if (window.blazorAudioLevelCallback) {
+        window.blazorAudioLevelCallback(level);
     }
     
     // Continue monitoring
@@ -127,11 +127,8 @@ async function processAudioChunks() {
         // Create blob from recorded chunks
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm;codecs=opus' });
         
-        // Convert to base64 for transmission
-        const base64Audio = await blobToBase64(audioBlob);
-        
         // Send to server for STT processing
-        await sendAudioToServer(base64Audio);
+        await sendAudioToServer(audioBlob);
         
     } catch (error) {
         console.error('Error processing audio:', error);
@@ -152,17 +149,16 @@ function blobToBase64(blob) {
 }
 
 // Send audio to server for processing
-async function sendAudioToServer(base64Audio) {
+async function sendAudioToServer(audioBlob) {
     try {
+        // Create FormData to send audio file
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'recording.webm');
+        formData.append('biasPrompt', 'aviation communication pilot ATC radio');
+        
         const response = await fetch('/api/stt', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                audioData: base64Audio,
-                format: 'webm'
-            })
+            body: formData
         });
         
         if (!response.ok) {
@@ -172,10 +168,22 @@ async function sendAudioToServer(base64Audio) {
         const result = await response.json();
         console.log('STT result:', result);
         
-        // The server should handle SignalR notifications for transcript updates
+        // Notify Blazor component of the result
+        if (window.blazorSttCallback && result.text) {
+            await window.blazorSttCallback(result.text, result.confidence || 0.0);
+        }
+        
+        return result;
         
     } catch (error) {
         console.error('Error sending audio to server:', error);
+        
+        // Notify Blazor of the error
+        if (window.blazorSttErrorCallback) {
+            await window.blazorSttErrorCallback(error.message);
+        }
+        
+        throw error;
     }
 }
 
