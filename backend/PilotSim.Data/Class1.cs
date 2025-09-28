@@ -124,7 +124,13 @@ public class Aircraft
     public string? EngineType { get; set; } // "Piston", "Turboprop", "Jet"
     public int? SeatCapacity { get; set; }
     
+    // MSFS-specific properties
+    public string? MsfsTitle { get; set; } // Aircraft title as appears in MSFS
+    public string? MsfsModelMatchCode { get; set; } // Code for model matching in MSFS
+    public bool SupportsSimConnect { get; set; } = false; // Whether this aircraft supports SimConnect
+    
     public ICollection<TrafficProfile> TrafficProfiles { get; set; } = new List<TrafficProfile>();
+    public ICollection<PilotProfile> PilotProfiles { get; set; } = new List<PilotProfile>();
 }
 
 public class TrafficProfile
@@ -173,4 +179,30 @@ public class AirspaceNotice
     public bool IsActive { get; set; } = true;
     
     public Airspace Airspace { get; set; } = null!;
+}
+
+public class PilotProfile
+{
+    public int Id { get; set; }
+    public string Callsign { get; set; } = string.Empty;
+    public int AircraftId { get; set; }
+    public string? PilotName { get; set; }
+    public string? ExperienceLevel { get; set; } // "Student", "Private", "Commercial", "ATP"
+    public string? PreferredAirports { get; set; } // JSON array of ICAO codes
+    public string? CertificatesRatings { get; set; } // "PPL, IR, Multi-Engine"
+    
+    // MSFS Live Integration
+    public bool IsLive { get; set; } = false; // Currently connected to MSFS
+    public double? CurrentLatitude { get; set; }
+    public double? CurrentLongitude { get; set; }
+    public double? CurrentAltitude { get; set; } // Feet MSL
+    public double? CurrentHeading { get; set; } // Magnetic heading in degrees
+    public double? CurrentSpeed { get; set; } // Ground speed in knots
+    public string? CurrentPhase { get; set; } // "Ground", "Taxi", "Takeoff", "Climb", "Cruise", "Descent", "Approach", "Landing"
+    public string? AssignedFrequency { get; set; } // Current ATC frequency
+    public string? FlightPlan { get; set; } // JSON flight plan data
+    public DateTime? LastUpdate { get; set; } // Last SimConnect update
+    public string? SimConnectStatus { get; set; } // "Connected", "Disconnected", "Error"
+    
+    public Aircraft Aircraft { get; set; } = null!;
 }

@@ -36,3 +36,34 @@ public interface IAtcService {
 public interface ITtsService {
     Task<string> SynthesizeAsync(string text, string voice, string style, CancellationToken cancellationToken);
 }
+
+// SimConnect integration types
+public record SimConnectAircraftData(
+    string Callsign,
+    double Latitude,
+    double Longitude, 
+    double Altitude,
+    double Heading,
+    double Speed,
+    string FlightPhase,
+    string? FrequencyAssigned);
+
+public record SimConnectStatus(
+    bool IsConnected,
+    string Status,
+    DateTime LastUpdate,
+    int ActiveAircraftCount);
+
+public interface ISimConnectService {
+    Task<bool> ConnectAsync(CancellationToken cancellationToken = default);
+    Task DisconnectAsync();
+    Task<SimConnectStatus> GetStatusAsync();
+    Task<IReadOnlyList<SimConnectAircraftData>> GetActiveAircraftAsync();
+    Task<SimConnectAircraftData?> GetAircraftDataAsync(string callsign);
+    Task<bool> SendAtcCommandAsync(string callsign, string command, CancellationToken cancellationToken = default);
+    
+    // Events
+    event EventHandler<SimConnectAircraftData>? AircraftPositionUpdated;
+    event EventHandler<string>? AircraftConnected;
+    event EventHandler<string>? AircraftDisconnected;
+}

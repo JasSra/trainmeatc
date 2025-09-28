@@ -72,8 +72,14 @@ builder.Services.AddScoped<ICachingService, CachingService>();
 builder.Services.AddScoped<IBackgroundTrafficService, BackgroundTrafficService>();
 builder.Services.AddScoped<IMetarService, MetarService>();
 
+
 // Add chart service for aviation documentation
 builder.Services.AddScoped<IAirserviceChartsService, AirserviceChartsService>();
+
+// Add MSFS SimConnect integration services
+builder.Services.AddScoped<ISimConnectService, SimConnectService>();
+builder.Services.AddScoped<IPilotProfileService, PilotProfileService>();
+
 
 var app = builder.Build();
 
