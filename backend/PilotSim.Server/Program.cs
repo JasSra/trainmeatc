@@ -72,6 +72,9 @@ builder.Services.AddScoped<ICachingService, CachingService>();
 builder.Services.AddScoped<IBackgroundTrafficService, BackgroundTrafficService>();
 builder.Services.AddScoped<IMetarService, MetarService>();
 
+// Add chart service for aviation documentation
+builder.Services.AddScoped<IAirserviceChartsService, AirserviceChartsService>();
+
 var app = builder.Build();
 
 // Initialize database

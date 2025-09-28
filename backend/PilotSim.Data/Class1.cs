@@ -19,6 +19,13 @@ public class Airport
     public bool HasMaintenance { get; set; } = false;
     public string? FuelTypes { get; set; } // "100LL, JetA1, Diesel"
     
+    // Chart and documentation links
+    public string? VtcChartUrl { get; set; } // Visual Terminal Chart URL
+    public string? TacChartUrl { get; set; } // Terminal Area Chart URL
+    public string? ErrcChartUrl { get; set; } // En Route Chart URL
+    public string? PcaChartUrl { get; set; } // Planned Chart Area URL
+    public string? AipUrl { get; set; } // Aeronautical Information Publication URL
+    
     public ICollection<Runway> Runways { get; set; } = new List<Runway>();
     public ICollection<Scenario> Scenarios { get; set; } = new List<Scenario>();
 }

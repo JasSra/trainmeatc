@@ -195,6 +195,14 @@
                             
                             <hr>
                             
+                            <!-- Airport Charts Section -->
+                            @if (!string.IsNullOrEmpty(selectedScenario.AirportIcao))
+                            {
+                                <div class="mb-4">
+                                    <AirportChartsPanel AirportIcao="@selectedScenario.AirportIcao" IsCollapsible="true" StartExpanded="false" />
+                                </div>
+                            }
+                            
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
                                     <button class="btn btn-outline-secondary me-2" @onclick="() => selectedScenario = null">

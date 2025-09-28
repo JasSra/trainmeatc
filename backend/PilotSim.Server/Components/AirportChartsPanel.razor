@@ -1,0 +1,205 @@
+@using PilotSim.Server.Services
+@inject IAirserviceChartsService ChartsService
+
+@if (!string.IsNullOrEmpty(AirportIcao))
+{
+    <div class="charts-panel">
+        <div class="charts-header d-flex justify-content-between align-items-center mb-3">
+            <h6 class="mb-0">
+                <i class="bi bi-file-earmark-pdf me-2"></i>
+                Official Charts & Documentation
+            </h6>
+            @if (IsCollapsible)
+            {
+                <button class="btn btn-sm btn-outline-secondary" @onclick="ToggleExpanded">
+                    <i class="bi bi-@(isExpanded ? "chevron-up" : "chevron-down")"></i>
+                </button>
+            }
+        </div>
+        
+        @if (!IsCollapsible || isExpanded)
+        {
+            <div class="charts-content">
+                @if (availableCharts.Any())
+                {
+                    <div class="row g-2">
+                        @foreach (var chart in availableCharts)
+                        {
+                            <div class="col-md-6 col-lg-@(availableCharts.Count > 2 ? "6" : "12")">
+                                <div class="chart-card">
+                                    <div class="chart-card-body">
+                                        <div class="d-flex align-items-start">
+                                            <div class="chart-icon me-3">
+                                                <i class="@chart.IconClass"></i>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <h6 class="chart-title mb-1">@chart.Name</h6>
+                                                <p class="chart-description small text-muted mb-2">@chart.Description</p>
+                                                <a href="@chart.Url" target="_blank" class="btn btn-sm btn-primary">
+                                                    <i class="bi bi-box-arrow-up-right me-1"></i>
+                                                    View PDF
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    
+                    <div class="charts-footer mt-3">
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Charts provided by <strong>Airservices Australia</strong>. 
+                            Always use current official publications for flight operations.
+                        </small>
+                    </div>
+                }
+                else
+                {
+                    <div class="no-charts-message">
+                        <div class="text-center py-3">
+                            <i class="bi bi-exclamation-triangle text-warning fs-4"></i>
+                            <p class="mb-1 mt-2">No official charts available</p>
+                            <small class="text-muted">This airport may not have published VTC/TAC charts</small>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string? AirportIcao { get; set; }
+    [Parameter] public bool IsCollapsible { get; set; } = true;
+    [Parameter] public bool StartExpanded { get; set; } = false;
+    
+    private List<ChartInfo> availableCharts = new();
+    private bool isExpanded = false;
+    
+    protected override void OnParametersSet()
+    {
+        if (!string.IsNullOrEmpty(AirportIcao))
+        {
+            availableCharts = ChartsService.GetAvailableChartsForAirport(AirportIcao);
+            isExpanded = StartExpanded || !IsCollapsible;
+        }
+        else
+        {
+            availableCharts.Clear();
+        }
+    }
+    
+    private void ToggleExpanded()
+    {
+        isExpanded = !isExpanded;
+    }
+}
+
+<style>
+.charts-panel {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.charts-header h6 {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.chart-card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    height: 100%;
+    transition: var(--transition-fast);
+}
+
+.chart-card:hover {
+    border-color: var(--aviation-accent);
+    box-shadow: var(--shadow-sm);
+}
+
+.chart-card-body {
+    padding: 1rem;
+}
+
+.chart-icon {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, var(--aviation-primary), var(--aviation-accent));
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.chart-title {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.chart-description {
+    line-height: 1.4;
+}
+
+.charts-footer {
+    border-top: 1px solid var(--border-color);
+    padding-top: 0.75rem;
+}
+
+.no-charts-message {
+    background: var(--bg-primary);
+    border: 1px dashed var(--border-color);
+    border-radius: 0.5rem;
+    padding: 1rem;
+}
+
+/* Dark theme support */
+.dark-theme .charts-panel {
+    background: var(--bg-tertiary);
+}
+
+.dark-theme .chart-card {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+}
+
+.dark-theme .chart-card:hover {
+    border-color: var(--aviation-accent);
+}
+
+.dark-theme .no-charts-message {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+}
+
+/* Mobile responsive */
+@@media (max-width: 768px) {
+    .charts-panel {
+        padding: 0.75rem;
+    }
+    
+    .chart-card-body {
+        padding: 0.75rem;
+    }
+    
+    .chart-icon {
+        width: 32px;
+        height: 32px;
+        font-size: 1rem;
+    }
+    
+    .chart-title {
+        font-size: 0.8rem;
+    }
+}
+</style>
