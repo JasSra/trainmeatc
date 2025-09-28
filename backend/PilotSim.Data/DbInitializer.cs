@@ -430,81 +430,96 @@ public static class DbInitializer
             new Aircraft 
             { 
                 Type = "C172", Manufacturer = "Cessna", Category = "GA", CallsignPrefix = "VH-",
-                CruiseSpeed = 122, ServiceCeiling = 14000, WakeCategory = "Light", EngineType = "Piston", SeatCapacity = 4
+                CruiseSpeed = 122, ServiceCeiling = 14000, WakeCategory = "Light", EngineType = "Piston", SeatCapacity = 4,
+                MsfsTitle = "Cessna 172 Skyhawk", MsfsModelMatchCode = "C172", SupportsSimConnect = true
             },
             new Aircraft 
             { 
                 Type = "C182", Manufacturer = "Cessna", Category = "GA", CallsignPrefix = "VH-",
-                CruiseSpeed = 145, ServiceCeiling = 18000, WakeCategory = "Light", EngineType = "Piston", SeatCapacity = 4
+                CruiseSpeed = 145, ServiceCeiling = 18000, WakeCategory = "Light", EngineType = "Piston", SeatCapacity = 4,
+                MsfsTitle = "Cessna 182 Skylane", MsfsModelMatchCode = "C182", SupportsSimConnect = true
             },
             new Aircraft 
             { 
                 Type = "C210", Manufacturer = "Cessna", Category = "GA", CallsignPrefix = "VH-",
-                CruiseSpeed = 174, ServiceCeiling = 27000, WakeCategory = "Light", EngineType = "Piston", SeatCapacity = 6
+                CruiseSpeed = 174, ServiceCeiling = 27000, WakeCategory = "Light", EngineType = "Piston", SeatCapacity = 6,
+                MsfsTitle = "Cessna 210 Centurion", MsfsModelMatchCode = "C210", SupportsSimConnect = false
             },
             new Aircraft 
             { 
                 Type = "PA28", Manufacturer = "Piper", Category = "GA", CallsignPrefix = "VH-",
-                CruiseSpeed = 115, ServiceCeiling = 14000, WakeCategory = "Light", EngineType = "Piston", SeatCapacity = 4
+                CruiseSpeed = 115, ServiceCeiling = 14000, WakeCategory = "Light", EngineType = "Piston", SeatCapacity = 4,
+                MsfsTitle = "Piper PA-28 Cherokee", MsfsModelMatchCode = "PA28", SupportsSimConnect = true
             },
             new Aircraft 
             { 
                 Type = "DA40", Manufacturer = "Diamond", Category = "GA", CallsignPrefix = "VH-",
-                CruiseSpeed = 142, ServiceCeiling = 16400, WakeCategory = "Light", EngineType = "Piston", SeatCapacity = 4
+                CruiseSpeed = 142, ServiceCeiling = 16400, WakeCategory = "Light", EngineType = "Piston", SeatCapacity = 4,
+                MsfsTitle = "Diamond DA40 Diamond Star", MsfsModelMatchCode = "DA40", SupportsSimConnect = true
             },
 
             // Medium Aircraft
             new Aircraft 
             { 
                 Type = "DHC8", Manufacturer = "De Havilland Canada", Category = "Medium", CallsignPrefix = "VH-",
-                CruiseSpeed = 360, ServiceCeiling = 25000, WakeCategory = "Medium", EngineType = "Turboprop", SeatCapacity = 78
+                CruiseSpeed = 360, ServiceCeiling = 25000, WakeCategory = "Medium", EngineType = "Turboprop", SeatCapacity = 78,
+                MsfsTitle = "DHC-8 Dash 8", MsfsModelMatchCode = "DHC8", SupportsSimConnect = false
             },
             new Aircraft 
             { 
                 Type = "AT72", Manufacturer = "ATR", Category = "Medium", CallsignPrefix = "VH-",
-                CruiseSpeed = 276, ServiceCeiling = 25000, WakeCategory = "Medium", EngineType = "Turboprop", SeatCapacity = 72
+                CruiseSpeed = 276, ServiceCeiling = 25000, WakeCategory = "Medium", EngineType = "Turboprop", SeatCapacity = 72,
+                MsfsTitle = "ATR 72-600", MsfsModelMatchCode = "AT72", SupportsSimConnect = false
             },
             new Aircraft 
             { 
                 Type = "E190", Manufacturer = "Embraer", Category = "Medium", CallsignPrefix = "VH-",
-                CruiseSpeed = 470, ServiceCeiling = 41000, WakeCategory = "Medium", EngineType = "Jet", SeatCapacity = 114
+                CruiseSpeed = 470, ServiceCeiling = 41000, WakeCategory = "Medium", EngineType = "Jet", SeatCapacity = 114,
+                MsfsTitle = "Embraer E-Jet E190", MsfsModelMatchCode = "E190", SupportsSimConnect = false
             },
             new Aircraft 
             { 
                 Type = "B737", Manufacturer = "Boeing", Category = "Medium", CallsignPrefix = "VH-",
-                CruiseSpeed = 453, ServiceCeiling = 41000, WakeCategory = "Medium", EngineType = "Jet", SeatCapacity = 189
+                CruiseSpeed = 453, ServiceCeiling = 41000, WakeCategory = "Medium", EngineType = "Jet", SeatCapacity = 189,
+                MsfsTitle = "Boeing 737-800", MsfsModelMatchCode = "B738", SupportsSimConnect = true
             },
             new Aircraft 
             { 
                 Type = "A320", Manufacturer = "Airbus", Category = "Medium", CallsignPrefix = "VH-",
-                CruiseSpeed = 447, ServiceCeiling = 39000, WakeCategory = "Medium", EngineType = "Jet", SeatCapacity = 180
+                CruiseSpeed = 447, ServiceCeiling = 39000, WakeCategory = "Medium", EngineType = "Jet", SeatCapacity = 180,
+                MsfsTitle = "Airbus A320neo", MsfsModelMatchCode = "A320", SupportsSimConnect = true
             },
 
             // Heavy Aircraft
             new Aircraft 
             { 
                 Type = "B777", Manufacturer = "Boeing", Category = "Heavy", CallsignPrefix = "VH-",
-                CruiseSpeed = 490, ServiceCeiling = 43100, WakeCategory = "Heavy", EngineType = "Jet", SeatCapacity = 396
+                CruiseSpeed = 490, ServiceCeiling = 43100, WakeCategory = "Heavy", EngineType = "Jet", SeatCapacity = 396,
+                MsfsTitle = "Boeing 777-300ER", MsfsModelMatchCode = "B77W", SupportsSimConnect = true
             },
             new Aircraft 
             { 
                 Type = "B787", Manufacturer = "Boeing", Category = "Heavy", CallsignPrefix = "VH-",
-                CruiseSpeed = 488, ServiceCeiling = 43000, WakeCategory = "Heavy", EngineType = "Jet", SeatCapacity = 330
+                CruiseSpeed = 488, ServiceCeiling = 43000, WakeCategory = "Heavy", EngineType = "Jet", SeatCapacity = 330,
+                MsfsTitle = "Boeing 787-9 Dreamliner", MsfsModelMatchCode = "B789", SupportsSimConnect = true
             },
             new Aircraft 
             { 
                 Type = "A330", Manufacturer = "Airbus", Category = "Heavy", CallsignPrefix = "VH-",
-                CruiseSpeed = 473, ServiceCeiling = 41000, WakeCategory = "Heavy", EngineType = "Jet", SeatCapacity = 335
+                CruiseSpeed = 473, ServiceCeiling = 41000, WakeCategory = "Heavy", EngineType = "Jet", SeatCapacity = 335,
+                MsfsTitle = "Airbus A330-300", MsfsModelMatchCode = "A333", SupportsSimConnect = false
             },
             new Aircraft 
             { 
                 Type = "A380", Manufacturer = "Airbus", Category = "Heavy", CallsignPrefix = "VH-",
-                CruiseSpeed = 488, ServiceCeiling = 43000, WakeCategory = "Super", EngineType = "Jet", SeatCapacity = 853
+                CruiseSpeed = 488, ServiceCeiling = 43000, WakeCategory = "Super", EngineType = "Jet", SeatCapacity = 853,
+                MsfsTitle = "Airbus A380-800", MsfsModelMatchCode = "A388", SupportsSimConnect = false
             },
             new Aircraft 
             { 
                 Type = "B747", Manufacturer = "Boeing", Category = "Heavy", CallsignPrefix = "VH-",
-                CruiseSpeed = 490, ServiceCeiling = 43100, WakeCategory = "Heavy", EngineType = "Jet", SeatCapacity = 660
+                CruiseSpeed = 490, ServiceCeiling = 43100, WakeCategory = "Heavy", EngineType = "Jet", SeatCapacity = 660,
+                MsfsTitle = "Boeing 747-8F", MsfsModelMatchCode = "B748", SupportsSimConnect = false
             }
         };
 
@@ -540,6 +555,77 @@ public static class DbInitializer
         }
 
         context.TrafficProfiles.AddRange(trafficProfiles);
+
+        // Add sample pilot profiles for MSFS integration testing
+        var pilotProfiles = new List<PilotProfile>();
+        var msfsAircraft = aircraftInDb.Where(a => a.SupportsSimConnect).ToList();
+        
+        if (msfsAircraft.Any())
+        {
+            // GA Pilot profiles
+            var c172 = msfsAircraft.FirstOrDefault(a => a.Type == "C172");
+            if (c172 != null)
+            {
+                pilotProfiles.Add(new PilotProfile
+                {
+                    Callsign = "VH-ABC",
+                    AircraftId = c172.Id,
+                    PilotName = "John Smith",
+                    ExperienceLevel = "Private",
+                    CertificatesRatings = "PPL",
+                    IsLive = false,
+                    SimConnectStatus = "Disconnected"
+                });
+            }
+
+            var pa28 = msfsAircraft.FirstOrDefault(a => a.Type == "PA28");
+            if (pa28 != null)
+            {
+                pilotProfiles.Add(new PilotProfile
+                {
+                    Callsign = "VH-XYZ",
+                    AircraftId = pa28.Id,
+                    PilotName = "Sarah Wilson",
+                    ExperienceLevel = "Student",
+                    CertificatesRatings = "Student Pilot",
+                    IsLive = false,
+                    SimConnectStatus = "Disconnected"
+                });
+            }
+
+            // Commercial pilot profiles
+            var b737 = msfsAircraft.FirstOrDefault(a => a.Type == "B737");
+            if (b737 != null)
+            {
+                pilotProfiles.Add(new PilotProfile
+                {
+                    Callsign = "QFA456",
+                    AircraftId = b737.Id,
+                    PilotName = "Captain Mike Johnson",
+                    ExperienceLevel = "ATP",
+                    CertificatesRatings = "ATPL, B737 Type Rating, IR",
+                    IsLive = false,
+                    SimConnectStatus = "Disconnected"
+                });
+            }
+
+            var a320 = msfsAircraft.FirstOrDefault(a => a.Type == "A320");
+            if (a320 != null)
+            {
+                pilotProfiles.Add(new PilotProfile
+                {
+                    Callsign = "JST789",
+                    AircraftId = a320.Id,
+                    PilotName = "Captain Emma Davis",
+                    ExperienceLevel = "ATP",
+                    CertificatesRatings = "ATPL, A320 Type Rating, IR",
+                    IsLive = false,
+                    SimConnectStatus = "Disconnected"
+                });
+            }
+        }
+
+        context.PilotProfiles.AddRange(pilotProfiles);
 
         // Add comprehensive scenarios for different airports and aircraft types
         var scenarios = new List<Scenario>
