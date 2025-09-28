@@ -91,6 +91,12 @@ else
                                         <i class="bi bi-tag me-1"></i>@aircraft.CallsignPrefix
                                     </span>
                                 }
+                                @if (aircraft.SupportsSimConnect)
+                                {
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-plugin me-1"></i>MSFS SimConnect
+                                    </span>
+                                }
                             </div>
                         </div>
 

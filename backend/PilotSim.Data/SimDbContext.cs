@@ -17,6 +17,7 @@ public class SimDbContext : DbContext
     public DbSet<Metric> Metrics { get; set; }
     public DbSet<Aircraft> Aircraft { get; set; }
     public DbSet<TrafficProfile> TrafficProfiles { get; set; }
+    public DbSet<PilotProfile> PilotProfiles { get; set; }
     public DbSet<Airspace> Airspaces { get; set; }
     public DbSet<AirspaceNotice> AirspaceNotices { get; set; }
 
@@ -157,6 +158,11 @@ public class SimDbContext : DbContext
             entity.Property(e => e.EngineType).HasColumnName("engine_type");
             entity.Property(e => e.SeatCapacity).HasColumnName("seat_capacity");
             
+            // MSFS-specific properties
+            entity.Property(e => e.MsfsTitle).HasColumnName("msfs_title");
+            entity.Property(e => e.MsfsModelMatchCode).HasColumnName("msfs_model_match_code");
+            entity.Property(e => e.SupportsSimConnect).HasColumnName("supports_simconnect").HasDefaultValue(false);
+            
             entity.ToTable("aircraft");
         });
 
@@ -224,6 +230,38 @@ public class SimDbContext : DbContext
                 .HasForeignKey(e => e.AirspaceId);
             
             entity.ToTable("airspace_notice");
+        });
+
+        // PilotProfile configuration
+        modelBuilder.Entity<PilotProfile>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Callsign).HasColumnName("callsign").IsRequired();
+            entity.Property(e => e.AircraftId).HasColumnName("aircraft_id");
+            entity.Property(e => e.PilotName).HasColumnName("pilot_name");
+            entity.Property(e => e.ExperienceLevel).HasColumnName("experience_level");
+            entity.Property(e => e.PreferredAirports).HasColumnName("preferred_airports");
+            entity.Property(e => e.CertificatesRatings).HasColumnName("certificates_ratings");
+            
+            // MSFS Live Integration properties
+            entity.Property(e => e.IsLive).HasColumnName("is_live").HasDefaultValue(false);
+            entity.Property(e => e.CurrentLatitude).HasColumnName("current_latitude");
+            entity.Property(e => e.CurrentLongitude).HasColumnName("current_longitude");
+            entity.Property(e => e.CurrentAltitude).HasColumnName("current_altitude");
+            entity.Property(e => e.CurrentHeading).HasColumnName("current_heading");
+            entity.Property(e => e.CurrentSpeed).HasColumnName("current_speed");
+            entity.Property(e => e.CurrentPhase).HasColumnName("current_phase");
+            entity.Property(e => e.AssignedFrequency).HasColumnName("assigned_frequency");
+            entity.Property(e => e.FlightPlan).HasColumnName("flight_plan");
+            entity.Property(e => e.LastUpdate).HasColumnName("last_update");
+            entity.Property(e => e.SimConnectStatus).HasColumnName("simconnect_status");
+            
+            entity.HasOne(e => e.Aircraft)
+                .WithMany(a => a.PilotProfiles)
+                .HasForeignKey(e => e.AircraftId);
+            
+            entity.ToTable("pilot_profile");
         });
     }
 }
