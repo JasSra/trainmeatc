@@ -66,10 +66,15 @@
                                 </div>
                                 
                                 <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                                    <button class="btn btn-aviation-primary btn-lg px-4" 
+                                            disabled="@(!DisclaimerAccepted)" 
+                                            @onclick="StartLearningJourney">
+                                        <i class="bi bi-compass me-2"></i>Start Learning Journey
+                                    </button>
                                     <button class="btn btn-primary btn-lg px-4" 
                                             disabled="@(!DisclaimerAccepted)" 
                                             @onclick="ProceedToScenarios">
-                                        <i class="bi bi-play-fill me-2"></i>Begin Training
+                                        <i class="bi bi-play-fill me-2"></i>Quick Training
                                     </button>
                                     <button class="btn btn-outline-secondary btn-lg px-4" 
                                             @onclick="ViewDocumentation">
@@ -189,6 +194,11 @@
 
 @code {
     private bool DisclaimerAccepted = false;
+    
+    private void StartLearningJourney()
+    {
+        Navigation.NavigateTo("/journey");
+    }
     
     private void ProceedToScenarios()
     {

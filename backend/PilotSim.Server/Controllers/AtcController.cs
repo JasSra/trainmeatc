@@ -22,6 +22,10 @@ public class AtcController : ControllerBase
         if (string.IsNullOrEmpty(request.Transcript))
             return BadRequest("Transcript is required");
 
+        // Validate input size
+        if (request.Transcript.Length > 5000)
+            return BadRequest("Transcript too long. Maximum 5000 characters allowed");
+
         var result = await _atcService.NextAsync(request.Transcript, request.State, request.Difficulty, request.Load, cancellationToken);
         return Ok(result);
     }

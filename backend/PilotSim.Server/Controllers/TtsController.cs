@@ -22,6 +22,10 @@ public class TtsController : ControllerBase
         if (string.IsNullOrEmpty(request.Text))
             return BadRequest("Text is required");
 
+        // Validate input size
+        if (request.Text.Length > 1000)
+            return BadRequest("Text too long. Maximum 1000 characters allowed for TTS");
+
         var result = await _ttsService.SynthesizeAsync(request.Text, request.Voice, request.Style, cancellationToken);
         return Ok(new { AudioPath = result });
     }

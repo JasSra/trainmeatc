@@ -305,6 +305,40 @@ public static class DbInitializer
                 HasFuel = true,
                 HasMaintenance = true,
                 FuelTypes = "100LL, JetA1"
+            },
+            // Mudgee Airport - Regional uncontrolled
+            new Airport
+            {
+                Icao = "YMDG",
+                Name = "Mudgee Airport",
+                Lat = -32.5625,
+                Lon = 149.6092,
+                TowerFreq = "CTAF 126.7",
+                GroundFreq = "CTAF 126.7",
+                AppFreq = "CTAF 126.7",
+                Category = "Regional",
+                ElevationFt = 1549,
+                OperatingHours = "H24",
+                HasFuel = true,
+                HasMaintenance = false,
+                FuelTypes = "100LL"
+            },
+            // Wollongong Airport - Regional
+            new Airport
+            {
+                Icao = "YWOL",
+                Name = "Wollongong Airport",
+                Lat = -34.5606,
+                Lon = 150.7894,
+                TowerFreq = "CTAF 119.6",
+                GroundFreq = "CTAF 119.6", 
+                AppFreq = "CTAF 119.6",
+                Category = "Regional",
+                ElevationFt = 31,
+                OperatingHours = "0600-2200 LT",
+                HasFuel = true,
+                HasMaintenance = true,
+                FuelTypes = "100LL, JetA1"
             }
         };
 
@@ -378,7 +412,13 @@ public static class DbInitializer
 
             // YPPF - Parafield
             new Runway { AirportIcao = "YPPF", Ident = "03/21", MagneticHeading = 30, LengthM = 1342, Ils = false },
-            new Runway { AirportIcao = "YPPF", Ident = "08/26", MagneticHeading = 80, LengthM = 1070, Ils = false }
+            new Runway { AirportIcao = "YPPF", Ident = "08/26", MagneticHeading = 80, LengthM = 1070, Ils = false },
+            
+            // YMDG - Mudgee
+            new Runway { AirportIcao = "YMDG", Ident = "10/28", MagneticHeading = 100, LengthM = 1200, Ils = false },
+            
+            // YWOL - Wollongong
+            new Runway { AirportIcao = "YWOL", Ident = "16/34", MagneticHeading = 160, LengthM = 1560, Ils = false }
         };
 
         context.Runways.AddRange(runways);
@@ -682,6 +722,176 @@ public static class DbInitializer
                 Seed = 102345,
                 InitialStateJson = "{\"position\":\"upwind\",\"aircraft\":\"VH-BCD\",\"type\":\"C152\",\"student\":true}",
                 RubricJson = "{\"circuit_procedures\":15,\"student_guidance\":20,\"safety_oversight\":15}"
+            },
+
+            // TAF Interpretation Training Scenarios
+            new Scenario
+            {
+                Name = "TAF Interpretation - Melbourne Weather",
+                AirportIcao = "YMML",
+                Kind = "weather_interpretation",
+                Difficulty = "Intermediate",
+                Seed = 110001,
+                InitialStateJson = "{\"position\":\"briefing\",\"aircraft\":\"VH-TAF\",\"type\":\"C172\",\"weather_brief\":true}",
+                RubricJson = "{\"taf_reading\":25,\"weather_decision\":20,\"alternate_planning\":15,\"fuel_considerations\":10}"
+            },
+            new Scenario
+            {
+                Name = "TAF Interpretation - Sydney Coastal Weather",
+                AirportIcao = "YSSY",
+                Kind = "weather_interpretation",
+                Difficulty = "Advanced",
+                Seed = 110002,
+                InitialStateJson = "{\"position\":\"briefing\",\"aircraft\":\"VH-WTH\",\"type\":\"B737\",\"coastal_weather\":true}",
+                RubricJson = "{\"complex_taf\":30,\"trend_analysis\":25,\"decision_making\":20,\"risk_assessment\":15}"
+            },
+            new Scenario
+            {
+                Name = "TAF Interpretation - Brisbane Tropical Conditions",
+                AirportIcao = "YBBN",
+                Kind = "weather_interpretation",
+                Difficulty = "Advanced",
+                Seed = 110003,
+                InitialStateJson = "{\"position\":\"briefing\",\"aircraft\":\"VH-TRP\",\"type\":\"DHC8\",\"tropical_weather\":true}",
+                RubricJson = "{\"tropical_taf\":30,\"thunderstorm_timing\":25,\"safety_margins\":20,\"alternate_requirements\":15}"
+            },
+
+            // Aviation Alphabet & Phraseology Training
+            new Scenario
+            {
+                Name = "Phonetic Alphabet Mastery",
+                AirportIcao = "YMMB",
+                Kind = "phraseology_training",
+                Difficulty = "Basic",
+                Seed = 120001,
+                InitialStateJson = "{\"position\":\"ground\",\"aircraft\":\"VH-PHO\",\"type\":\"C172\",\"alphabet_drill\":true}",
+                RubricJson = "{\"phonetic_accuracy\":25,\"clarity\":20,\"speed\":15,\"consistency\":10}"
+            },
+            new Scenario
+            {
+                Name = "Standard Phraseology Practice",
+                AirportIcao = "YSBK",
+                Kind = "phraseology_training",
+                Difficulty = "Intermediate",
+                Seed = 120002,
+                InitialStateJson = "{\"position\":\"various\",\"aircraft\":\"VH-STD\",\"type\":\"PA28\",\"phraseology_drill\":true}",
+                RubricJson = "{\"standard_phrases\":25,\"appropriate_usage\":20,\"conciseness\":15,\"professional_delivery\":15}"
+            },
+            new Scenario
+            {
+                Name = "International Phraseology Standards",
+                AirportIcao = "YSSY",
+                Kind = "phraseology_training",
+                Difficulty = "Advanced",
+                Seed = 120003,
+                InitialStateJson = "{\"position\":\"international_gate\",\"aircraft\":\"VH-INT\",\"type\":\"A330\",\"international\":true}",
+                RubricJson = "{\"icao_phraseology\":30,\"international_procedures\":25,\"emergency_phrases\":20,\"non_native_clarity\":15}"
+            },
+
+            // Controlled Aerodrome Operations
+            new Scenario
+            {
+                Name = "Class C Tower Operations - Melbourne",
+                AirportIcao = "YMML",
+                Kind = "controlled_ops",
+                Difficulty = "Intermediate",
+                Seed = 130001,
+                InitialStateJson = "{\"position\":\"holding_point\",\"aircraft\":\"VH-CTL\",\"type\":\"C182\",\"controlled\":true}",
+                RubricJson = "{\"tower_communication\":25,\"clearance_compliance\":20,\"separation_awareness\":15,\"emergency_procedures\":15}"
+            },
+            new Scenario
+            {
+                Name = "Class C Complex Operations - Sydney",
+                AirportIcao = "YSSY",
+                Kind = "controlled_ops",
+                Difficulty = "Advanced",
+                Seed = 130002,
+                InitialStateJson = "{\"position\":\"approach\",\"aircraft\":\"VH-CMP\",\"type\":\"A320\",\"complex_airspace\":true}",
+                RubricJson = "{\"complex_clearances\":30,\"traffic_integration\":25,\"priority_handling\":20,\"stress_management\":15}"
+            },
+            new Scenario
+            {
+                Name = "Class D Tower Operations - Gold Coast",
+                AirportIcao = "YBCG",
+                Kind = "controlled_ops",
+                Difficulty = "Intermediate",
+                Seed = 130003,
+                InitialStateJson = "{\"position\":\"circuit\",\"aircraft\":\"VH-GLD\",\"type\":\"C172\",\"class_d\":true}",
+                RubricJson = "{\"class_d_procedures\":20,\"mixed_traffic\":20,\"position_reporting\":15,\"runway_management\":15}"
+            },
+            new Scenario
+            {
+                Name = "Controlled Airspace Transition",
+                AirportIcao = "YSCB",
+                Kind = "controlled_ops",
+                Difficulty = "Advanced",
+                Seed = 130004,
+                InitialStateJson = "{\"position\":\"cta_boundary\",\"aircraft\":\"VH-CTA\",\"type\":\"PA44\",\"transition\":true}",
+                RubricJson = "{\"clearance_requests\":25,\"altitude_management\":20,\"frequency_changes\":15,\"navigation_accuracy\":20}"
+            },
+
+            // Uncontrolled Aerodrome Operations
+            new Scenario
+            {
+                Name = "CTAF Procedures - Mudgee",
+                AirportIcao = "YMDG",  
+                Kind = "uncontrolled_ops",
+                Difficulty = "Basic",
+                Seed = 140001,
+                InitialStateJson = "{\"position\":\"10nm_out\",\"aircraft\":\"VH-CTF\",\"type\":\"C172\",\"ctaf\":true}",
+                RubricJson = "{\"ctaf_procedures\":25,\"position_reports\":20,\"traffic_awareness\":20,\"self_separation\":15}"
+            },
+            new Scenario
+            {
+                Name = "Non-Towered Airport Operations",
+                AirportIcao = "YWOL",
+                Kind = "uncontrolled_ops", 
+                Difficulty = "Intermediate",
+                Seed = 140002,
+                InitialStateJson = "{\"position\":\"overhead\",\"aircraft\":\"VH-NTW\",\"type\":\"PA28\",\"non_towered\":true}",
+                RubricJson = "{\"standard_procedures\":20,\"traffic_pattern\":20,\"radio_discipline\":15,\"safety_awareness\":25}"
+            },
+            new Scenario
+            {
+                Name = "Grass Strip Operations",
+                AirportIcao = "YSCN",
+                Kind = "uncontrolled_ops",
+                Difficulty = "Advanced", 
+                Seed = 140003,
+                InitialStateJson = "{\"position\":\"approach\",\"aircraft\":\"VH-GRS\",\"type\":\"C180\",\"grass_strip\":true}",
+                RubricJson = "{\"grass_procedures\":25,\"wind_assessment\":20,\"surface_conditions\":20,\"precautionary_approach\":15}"
+            },
+            new Scenario
+            {
+                Name = "Remote Aerodrome Operations",
+                AirportIcao = "YPDN",
+                Kind = "uncontrolled_ops",
+                Difficulty = "Advanced",
+                Seed = 140004, 
+                InitialStateJson = "{\"position\":\"remote_approach\",\"aircraft\":\"VH-RMT\",\"type\":\"C210\",\"remote\":true}",
+                RubricJson = "{\"remote_procedures\":25,\"fuel_planning\":20,\"weather_assessment\":20,\"emergency_preparedness\":20}"
+            },
+
+            // Mixed Training Scenarios
+            new Scenario
+            {
+                Name = "Controlled to Uncontrolled Transition",
+                AirportIcao = "YMML",
+                Kind = "mixed_ops",
+                Difficulty = "Advanced",
+                Seed = 150001,
+                InitialStateJson = "{\"position\":\"departure\",\"aircraft\":\"VH-MIX\",\"type\":\"C182\",\"transition\":true}",
+                RubricJson = "{\"procedure_changes\":25,\"frequency_management\":20,\"navigation_transition\":20,\"communication_adaptation\":15}"
+            },
+            new Scenario
+            {
+                Name = "Emergency Communications Training",
+                AirportIcao = "YSSY",
+                Kind = "emergency_training",
+                Difficulty = "Advanced",
+                Seed = 150002,
+                InitialStateJson = "{\"position\":\"emergency\",\"aircraft\":\"VH-EMG\",\"type\":\"B737\",\"emergency\":true}",
+                RubricJson = "{\"emergency_phraseology\":30,\"urgency_communication\":25,\"priority_handling\":20,\"stress_management\":20}"
             }
         };
 

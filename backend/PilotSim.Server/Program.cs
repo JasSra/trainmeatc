@@ -5,6 +5,7 @@ using PilotSim.Data;
 using PilotSim.Server.Components;
 using PilotSim.Server.Hubs;
 using PilotSim.Server.Services;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +18,24 @@ builder.Services.AddSignalR();
 
 // Add HttpClient for Blazor components
 builder.Services.AddHttpClient();
+
+// Add Memory Caching
+builder.Services.AddMemoryCache();
+
+// Add Redis Caching (optional, fallback to memory cache if not configured)
+var redisConnectionString = builder.Configuration.GetConnectionString("Redis");
+if (!string.IsNullOrEmpty(redisConnectionString))
+{
+    builder.Services.AddStackExchangeRedisCache(options =>
+    {
+        options.Configuration = redisConnectionString;
+    });
+}
+else
+{
+    // Add NullObjectPattern distributed cache when Redis is not available
+    builder.Services.AddDistributedMemoryCache();
+}
 
 // Add DbContext
 builder.Services.AddDbContext<SimDbContext>(options =>
@@ -45,6 +64,13 @@ else
 
 // Add API controllers
 builder.Services.AddControllers();
+
+// Add caching service
+builder.Services.AddScoped<ICachingService, CachingService>();
+
+// Add Milestone 4 services
+builder.Services.AddScoped<IBackgroundTrafficService, BackgroundTrafficService>();
+builder.Services.AddScoped<IMetarService, MetarService>();
 
 var app = builder.Build();
 

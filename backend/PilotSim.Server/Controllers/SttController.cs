@@ -11,6 +11,7 @@ public class SttController : ControllerBase
 {
     private readonly ISttService _sttService;
     private readonly IHubContext<LiveHub> _hubContext;
+    private const int MaxAudioSizeBytes = 25 * 1024 * 1024; // 25MB limit
 
     public SttController(ISttService sttService, IHubContext<LiveHub> hubContext)
     {
@@ -19,10 +20,21 @@ public class SttController : ControllerBase
     }
 
     [HttpPost]
+    [RequestSizeLimit(MaxAudioSizeBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaxAudioSizeBytes)]
     public async Task<ActionResult<SttResult>> TranscribeAsync(IFormFile audio, [FromForm] string biasPrompt = "", [FromForm] string? sessionId = null, CancellationToken cancellationToken = default)
     {
         if (audio == null || audio.Length == 0)
             return BadRequest("Audio file is required");
+
+        // Validate file size
+        if (audio.Length > MaxAudioSizeBytes)
+            return BadRequest($"Audio file too large. Maximum size is {MaxAudioSizeBytes / (1024 * 1024)}MB");
+
+        // Validate content type
+        var allowedTypes = new[] { "audio/wav", "audio/mpeg", "audio/mp4", "audio/webm", "audio/ogg" };
+        if (!allowedTypes.Contains(audio.ContentType?.ToLower()))
+            return BadRequest($"Unsupported audio format. Allowed types: {string.Join(", ", allowedTypes)}");
 
         using var stream = audio.OpenReadStream();
         var result = await _sttService.TranscribeAsync(stream, biasPrompt, cancellationToken);
