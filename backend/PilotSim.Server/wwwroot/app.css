@@ -1093,4 +1093,409 @@ a:hover {
     margin-top: 0.75rem;
     font-weight: 600;
 }
+
+/* Learning Journey Styles - Game-like Interface */
+.journey-hero {
+    background: linear-gradient(135deg, var(--aviation-primary), var(--aviation-primary-hover));
+    color: white;
+    padding: 3rem 2rem;
+    border-radius: 1rem;
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.journey-hero::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 100%;
+    height: 200%;
+    background: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M20 20c0-11.046-8.954-20-20-20v20h20z'/%3E%3C/g%3E%3C/svg%3E");
+    animation: float 20s linear infinite;
+}
+
+@keyframes float {
+    0% { transform: translateX(-100px); }
+    100% { transform: translateX(100px); }
+}
+
+/* Experience Level Cards */
+.experience-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.experience-card:hover .card {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+.hover-lift {
+    transition: all 0.3s ease;
+}
+
+.hover-lift:hover {
+    transform: translateY(-4px);
+}
+
+.experience-icon {
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 50%;
+}
+
+.experience-badge {
+    margin-top: 1rem;
+}
+
+/* Selected Level Header */
+.selected-level-header {
+    position: relative;
+    z-index: 10;
+}
+
+/* Learning Path Styles */
+.learning-path-container {
+    position: relative;
+    padding: 2rem 0;
+}
+
+.learning-stage {
+    position: relative;
+    margin-bottom: 2rem;
+}
+
+.stage-number {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.current-stage-indicator {
+    background: linear-gradient(135deg, var(--aviation-primary), var(--aviation-primary-hover));
+    color: white;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 4px rgba(30, 58, 138, 0.2);
+    animation: currentPulse 2s infinite;
+}
+
+@keyframes currentPulse {
+    0%, 100% { box-shadow: 0 0 0 4px rgba(30, 58, 138, 0.2); }
+    50% { box-shadow: 0 0 0 8px rgba(30, 58, 138, 0.1); }
+}
+
+.future-stage-indicator {
+    background: var(--bg-tertiary);
+    color: var(--text-muted);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--border-color);
+}
+
+.stage-connector {
+    width: 2px;
+    height: 60px;
+    background: linear-gradient(to bottom, var(--aviation-primary), var(--border-color));
+    margin: 8px auto;
+}
+
+.learning-stage.completed .stage-connector {
+    background: var(--aviation-success);
+}
+
+.learning-stage.locked .stage-connector {
+    background: var(--border-color);
+}
+
+.stage-card {
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.stage-card.clickable {
+    cursor: pointer;
+}
+
+.stage-card.clickable:hover {
+    transform: translateX(8px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.stage-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--aviation-accent);
+    transform: scaleY(0);
+    transition: transform 0.3s ease;
+}
+
+.stage-card.clickable:hover::before {
+    transform: scaleY(1);
+}
+
+.learning-stage.completed .stage-card {
+    background: rgba(16, 185, 129, 0.02);
+    border-color: var(--aviation-success);
+}
+
+.learning-stage.completed .stage-card::before {
+    background: var(--aviation-success);
+    transform: scaleY(1);
+}
+
+.learning-stage.current .stage-card {
+    background: rgba(30, 58, 138, 0.02);
+    border-color: var(--aviation-primary);
+    box-shadow: 0 0 0 1px rgba(30, 58, 138, 0.1);
+}
+
+.learning-stage.current .stage-card::before {
+    background: var(--aviation-primary);
+    transform: scaleY(1);
+}
+
+.learning-stage.locked .stage-card {
+    background: var(--bg-secondary);
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.stage-skills .badge {
+    margin: 0.125rem;
+}
+
+.stage-info {
+    text-align: right;
+}
+
+@media (max-width: 768px) {
+    .stage-info {
+        text-align: left;
+        margin-top: 1rem;
+    }
+}
+
+/* Outcomes Section */
+.outcomes-section {
+    background: linear-gradient(135deg, var(--bg-secondary), var(--bg-primary));
+    border-radius: 1rem;
+    padding: 3rem 2rem;
+    margin-top: 3rem;
+    position: relative;
+}
+
+.outcomes-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--aviation-primary), var(--aviation-accent), var(--aviation-success));
+    border-radius: 1rem 1rem 0 0;
+}
+
+.outcome-card {
+    padding: 2rem 1rem;
+    transition: all 0.3s ease;
+}
+
+.outcome-card:hover {
+    transform: translateY(-4px);
+}
+
+.outcome-icon {
+    animation: float-gentle 3s ease-in-out infinite;
+}
+
+.outcome-card:nth-child(2) .outcome-icon {
+    animation-delay: -1s;
+}
+
+.outcome-card:nth-child(3) .outcome-icon {
+    animation-delay: -2s;
+}
+
+@keyframes float-gentle {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-5px); }
+}
+
+/* Progress Indicators */
+.progress-ring {
+    width: 60px;
+    height: 60px;
+    position: relative;
+    display: inline-block;
+}
+
+.progress-ring svg {
+    transform: rotate(-90deg);
+}
+
+.progress-ring circle {
+    fill: none;
+    stroke-width: 4;
+}
+
+.progress-ring .background {
+    stroke: var(--border-color);
+}
+
+.progress-ring .progress {
+    stroke: var(--aviation-success);
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.5s ease;
+}
+
+/* Achievement Badges */
+.achievement-badge {
+    display: inline-flex;
+    align-items: center;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 2rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+.achievement-badge i {
+    margin-right: 0.5rem;
+    font-size: 1.1rem;
+}
+
+/* Gamification Elements */
+.level-badge {
+    background: linear-gradient(135deg, var(--aviation-primary), var(--aviation-primary-hover));
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 2rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: inline-flex;
+    align-items: center;
+    box-shadow: 0 4px 15px rgba(30, 58, 138, 0.3);
+}
+
+.level-badge i {
+    margin-right: 0.75rem;
+    font-size: 1.2rem;
+}
+
+.xp-bar {
+    background: var(--bg-tertiary);
+    border-radius: 1rem;
+    height: 12px;
+    overflow: hidden;
+    position: relative;
+}
+
+.xp-fill {
+    background: linear-gradient(90deg, var(--aviation-success), var(--aviation-accent));
+    height: 100%;
+    transition: width 1s ease;
+    border-radius: 1rem;
+}
+
+.skill-tag {
+    background: rgba(30, 58, 138, 0.1);
+    color: var(--aviation-primary);
+    border: 1px solid rgba(30, 58, 138, 0.2);
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin: 0.125rem;
+    display: inline-block;
+    transition: all 0.2s ease;
+}
+
+.skill-tag:hover {
+    background: rgba(30, 58, 138, 0.15);
+    transform: scale(1.05);
+}
+
+/* Responsive Design for Learning Journey */
+@media (max-width: 768px) {
+    .journey-hero {
+        padding: 2rem 1rem;
+    }
+    
+    .learning-stage {
+        margin-bottom: 1.5rem;
+    }
+    
+    .stage-card.clickable:hover {
+        transform: none;
+    }
+    
+    .outcomes-section {
+        padding: 2rem 1rem;
+    }
+    
+    .stage-number {
+        width: 35px;
+        height: 35px;
+        font-size: 1rem;
+    }
+    
+    .current-stage-indicator {
+        width: 35px;
+        height: 35px;
+    }
+    
+    .future-stage-indicator {
+        width: 35px;
+        height: 35px;
+    }
+}
+
+/* Dark Theme Support for Learning Journey */
+.dark-theme .journey-hero {
+    background: linear-gradient(135deg, #1e3a8a, #1e40af);
+}
+
+.dark-theme .outcomes-section {
+    background: linear-gradient(135deg, var(--bg-secondary), var(--bg-primary));
+}
+
+.dark-theme .stage-card {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+}
+
+.dark-theme .learning-stage.completed .stage-card {
+    background: rgba(16, 185, 129, 0.05);
+}
+
+.dark-theme .learning-stage.current .stage-card {
+    background: rgba(30, 58, 138, 0.05);
+}
 }

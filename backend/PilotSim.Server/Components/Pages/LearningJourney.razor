@@ -1,0 +1,434 @@
+@page "/journey"
+@using Microsoft.AspNetCore.Components
+@using Microsoft.EntityFrameworkCore
+@using PilotSim.Data
+@using PilotSim.Data.Models
+@inject NavigationManager Navigation
+@inject SimDbContext DbContext
+
+<PageTitle>Learning Journey - TrainMeATC</PageTitle>
+
+<div class="container-fluid py-4">
+    <!-- Hero Section -->
+    <div class="row mb-5">
+        <div class="col-12 text-center">
+            <div class="journey-hero">
+                <h1 class="display-4 mb-3">
+                    <i class="bi bi-compass me-3 text-aviation-primary"></i>
+                    Your Aviation Training Journey
+                </h1>
+                <p class="lead text-muted">Choose your experience level and discover your personalized learning path to mastery</p>
+            </div>
+        </div>
+    </div>
+
+    @if (selectedLevel == null)
+    {
+        <!-- Experience Level Selection -->
+        <div class="row mb-5">
+            <div class="col-12">
+                <h2 class="text-center mb-4">What's your current experience level?</h2>
+                <div class="row justify-content-center">
+                    @foreach (var level in experienceLevels)
+                    {
+                        <div class="col-lg-4 col-md-6 mb-4">
+                            <div class="experience-card" @onclick="() => SelectLevel(level)" style="cursor: pointer;">
+                                <div class="card h-100 border-0 shadow-lg hover-lift">
+                                    <div class="card-body text-center p-4">
+                                        <div class="experience-icon mb-3">
+                                            <i class="@level.Icon" style="font-size: 3rem; color: @level.Color;"></i>
+                                        </div>
+                                        <h4 class="card-title">@level.Name</h4>
+                                        <p class="card-text text-muted">@level.Description</p>
+                                        <div class="experience-badge">
+                                            <span class="badge rounded-pill" style="background-color: @level.Color; color: white;">
+                                                @level.HoursRange
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Learning Path Display -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="selected-level-header text-center mb-5">
+                    <div class="d-inline-flex align-items-center bg-light rounded-pill px-4 py-2">
+                        <i class="@selectedLevel.Icon me-2" style="color: @selectedLevel.Color;"></i>
+                        <span class="fw-bold">@selectedLevel.Name Pilot</span>
+                        <button class="btn btn-sm btn-outline-secondary ms-3" @onclick="ResetSelection">
+                            <i class="bi bi-arrow-left me-1"></i>Change Level
+                        </button>
+                    </div>
+                </div>
+
+                <h2 class="text-center mb-5">Your Personalized Learning Journey</h2>
+
+                <!-- Learning Path Progress -->
+                <div class="learning-path-container mb-5">
+                    @for (int i = 0; i < selectedLevel.LearningPath.Count; i++)
+                    {
+                        var stage = selectedLevel.LearningPath[i];
+                        var isCompleted = false; // Would be dynamic based on user progress
+                        var isCurrent = i == 0; // Would be dynamic based on user progress
+                        var isLocked = i > 1; // Would be dynamic based on user progress
+
+                        <div class="learning-stage @(isCompleted ? "completed" : isCurrent ? "current" : isLocked ? "locked" : "available")">
+                            <div class="row align-items-center mb-4">
+                                <div class="col-md-1 text-center">
+                                    <div class="stage-number">
+                                        @if (isCompleted)
+                                        {
+                                            <i class="bi bi-check-circle-fill text-success"></i>
+                                        }
+                                        else if (isCurrent)
+                                        {
+                                            <div class="current-stage-indicator">@(i + 1)</div>
+                                        }
+                                        else if (isLocked)
+                                        {
+                                            <i class="bi bi-lock-fill text-muted"></i>
+                                        }
+                                        else
+                                        {
+                                            <div class="future-stage-indicator">@(i + 1)</div>
+                                        }
+                                    </div>
+                                    @if (i < selectedLevel.LearningPath.Count - 1)
+                                    {
+                                        <div class="stage-connector"></div>
+                                    }
+                                </div>
+                                <div class="col-md-11">
+                                    <div class="stage-card @(!isLocked ? "clickable" : "")" @onclick="() => ViewStage(stage, isLocked)">
+                                        <div class="card border-0 shadow-sm">
+                                            <div class="card-body">
+                                                <div class="row">
+                                                    <div class="col-md-8">
+                                                        <h5 class="card-title d-flex align-items-center">
+                                                            <i class="@stage.Icon me-2" style="color: @stage.Color;"></i>
+                                                            @stage.Name
+                                                            @if (isCurrent)
+                                                            {
+                                                                <span class="badge bg-primary ms-2">Current</span>
+                                                            }
+                                                        </h5>
+                                                        <p class="card-text">@stage.Description</p>
+                                                        <div class="stage-skills mb-3">
+                                                            <h6 class="text-muted mb-2">Skills You'll Learn:</h6>
+                                                            <div class="d-flex flex-wrap gap-1">
+                                                                @foreach (var skill in stage.Skills)
+                                                                {
+                                                                    <span class="badge bg-light text-dark border">@skill</span>
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-4 text-end">
+                                                        <div class="stage-info">
+                                                            <div class="mb-2">
+                                                                <small class="text-muted">Duration:</small>
+                                                                <br><strong>@stage.EstimatedHours hours</strong>
+                                                            </div>
+                                                            <div class="mb-2">
+                                                                <small class="text-muted">Scenarios:</small>
+                                                                <br><strong>@stage.ScenarioCount scenarios</strong>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <small class="text-muted">Difficulty:</small>
+                                                                <br><span class="badge bg-@GetDifficultyColor(stage.Difficulty)">@stage.Difficulty</span>
+                                                            </div>
+                                                            @if (!isLocked)
+                                                            {
+                                                                <button class="btn btn-aviation-primary btn-sm">
+                                                                    @(isCurrent ? "Continue" : "Start")
+                                                                    <i class="bi bi-arrow-right ms-1"></i>
+                                                                </button>
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <!-- Outcomes Section -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="outcomes-section">
+                            <h3 class="text-center mb-4">
+                                <i class="bi bi-trophy me-2 text-warning"></i>
+                                Your Journey Outcomes
+                            </h3>
+                            <div class="row">
+                                <div class="col-md-4 mb-4">
+                                    <div class="outcome-card text-center">
+                                        <div class="outcome-icon mb-3">
+                                            <i class="bi bi-patch-check-fill text-success" style="font-size: 2.5rem;"></i>
+                                        </div>
+                                        <h5>Professional Certification</h5>
+                                        <p class="text-muted">Complete your journey to earn recognized aviation communication certification</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-4">
+                                    <div class="outcome-card text-center">
+                                        <div class="outcome-icon mb-3">
+                                            <i class="bi bi-graph-up-arrow text-primary" style="font-size: 2.5rem;"></i>
+                                        </div>
+                                        <h5>Skill Progression</h5>
+                                        <p class="text-muted">Track your improvement with detailed analytics and performance metrics</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-4">
+                                    <div class="outcome-card text-center">
+                                        <div class="outcome-icon mb-3">
+                                            <i class="bi bi-people-fill text-info" style="font-size: 2.5rem;"></i>
+                                        </div>
+                                        <h5>Real-World Ready</h5>
+                                        <p class="text-muted">Gain confidence for actual flight operations with realistic scenarios</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private ExperienceLevel? selectedLevel = null;
+
+    private List<ExperienceLevel> experienceLevels = new()
+    {
+        new ExperienceLevel
+        {
+            Name = "Student Pilot",
+            Description = "Just starting your aviation journey or have basic flight training",
+            HoursRange = "0-40 hours",
+            Icon = "bi bi-mortarboard-fill",
+            Color = "#28a745",
+            LearningPath = new()
+            {
+                new LearningStage
+                {
+                    Name = "Aviation Alphabet & Basic Phraseology",
+                    Description = "Master the fundamentals of aviation communication",
+                    Icon = "bi bi-chat-dots",
+                    Color = "#28a745",
+                    EstimatedHours = 8,
+                    ScenarioCount = 5,
+                    Difficulty = "Basic",
+                    Skills = new() { "Phonetic Alphabet", "Basic Phraseology", "Radio Discipline", "Clear Communication" }
+                },
+                new LearningStage
+                {
+                    Name = "Uncontrolled Airport Operations",
+                    Description = "Learn CTAF procedures and self-separation techniques",
+                    Icon = "bi bi-broadcast-pin",
+                    Color = "#ffc107",
+                    EstimatedHours = 12,
+                    ScenarioCount = 8,
+                    Difficulty = "Intermediate",
+                    Skills = new() { "CTAF Procedures", "Position Reports", "Traffic Awareness", "Self-Separation" }
+                },
+                new LearningStage
+                {
+                    Name = "Basic Weather Interpretation",
+                    Description = "Understand TAF and METAR for flight planning",
+                    Icon = "bi bi-cloud-rain",
+                    Color = "#17a2b8",
+                    EstimatedHours = 10,
+                    ScenarioCount = 6,
+                    Difficulty = "Intermediate",
+                    Skills = new() { "TAF Reading", "Weather Decisions", "Safety Margins", "Alternate Planning" }
+                },
+                new LearningStage
+                {
+                    Name = "Controlled Airport Basics",
+                    Description = "Introduction to tower communications and clearances",
+                    Icon = "bi bi-tower",
+                    Color = "#6f42c1",
+                    EstimatedHours = 15,
+                    ScenarioCount = 10,
+                    Difficulty = "Advanced",
+                    Skills = new() { "Tower Communication", "Clearance Compliance", "Class D Operations", "Emergency Procedures" }
+                }
+            }
+        },
+        new ExperienceLevel
+        {
+            Name = "Private Pilot",
+            Description = "Licensed pilot with recreational flying experience",
+            HoursRange = "40-250 hours",
+            Icon = "bi bi-airplane",
+            Color = "#007bff",
+            LearningPath = new()
+            {
+                new LearningStage
+                {
+                    Name = "Advanced Phraseology",
+                    Description = "Refine your communication with standard and international phraseology",
+                    Icon = "bi bi-translate",
+                    Color = "#007bff",
+                    EstimatedHours = 6,
+                    ScenarioCount = 4,
+                    Difficulty = "Intermediate",
+                    Skills = new() { "Standard Phrases", "International Procedures", "Professional Delivery", "Concise Communication" }
+                },
+                new LearningStage
+                {
+                    Name = "Complex Weather Operations",
+                    Description = "Handle challenging weather scenarios and decision making",
+                    Icon = "bi bi-cloud-lightning",
+                    Color = "#dc3545",
+                    EstimatedHours = 12,
+                    ScenarioCount = 7,
+                    Difficulty = "Advanced",
+                    Skills = new() { "Complex TAF", "Trend Analysis", "Risk Assessment", "Weather Avoidance" }
+                },
+                new LearningStage
+                {
+                    Name = "Class C Operations",
+                    Description = "Master complex controlled airspace communications",
+                    Icon = "bi bi-building",
+                    Color = "#6f42c1",
+                    EstimatedHours = 18,
+                    ScenarioCount = 12,
+                    Difficulty = "Advanced",
+                    Skills = new() { "Complex Clearances", "Traffic Integration", "Multi-runway Ops", "Priority Handling" }
+                },
+                new LearningStage
+                {
+                    Name = "Cross-Country & Navigation",
+                    Description = "Long distance flight communication and frequency management",
+                    Icon = "bi bi-map",
+                    Color = "#fd7e14",
+                    EstimatedHours = 15,
+                    ScenarioCount = 10,
+                    Difficulty = "Advanced",
+                    Skills = new() { "Frequency Changes", "Flight Following", "Navigation Accuracy", "Route Changes" }
+                }
+            }
+        },
+        new ExperienceLevel
+        {
+            Name = "Commercial Pilot",
+            Description = "Professional pilot or advanced aviator seeking mastery",
+            HoursRange = "250+ hours",
+            Icon = "bi bi-airplane-engines-fill",
+            Color = "#6c757d",
+            LearningPath = new()
+            {
+                new LearningStage
+                {
+                    Name = "Emergency Communications",
+                    Description = "Handle high-stress emergency scenarios with professionalism",
+                    Icon = "bi bi-exclamation-triangle-fill",
+                    Color = "#dc3545",
+                    EstimatedHours = 10,
+                    ScenarioCount = 8,
+                    Difficulty = "Expert",
+                    Skills = new() { "Emergency Phraseology", "Urgency Communication", "Stress Management", "Priority Coordination" }
+                },
+                new LearningStage
+                {
+                    Name = "Multi-Environment Transitions",
+                    Description = "Seamlessly adapt between controlled and uncontrolled operations",
+                    Icon = "би bi-arrow-left-right",
+                    Color = "#20c997",
+                    EstimatedHours = 14,
+                    ScenarioCount = 9,
+                    Difficulty = "Expert",
+                    Skills = new() { "Procedure Adaptation", "Frequency Management", "Communication Flexibility", "Situational Awareness" }
+                },
+                new LearningStage
+                {
+                    Name = "International Operations",
+                    Description = "Master global aviation communication standards",
+                    Icon = "bi bi-globe",
+                    Color = "#6f42c1",
+                    EstimatedHours = 16,
+                    ScenarioCount = 11,
+                    Difficulty = "Expert",
+                    Skills = new() { "ICAO Standards", "Non-native Clarity", "International Procedures", "Cultural Awareness" }
+                },
+                new LearningStage
+                {
+                    Name = "Instructor Readiness",
+                    Description = "Prepare to teach and mentor other pilots",
+                    Icon = "bi bi-person-check-fill",
+                    Color = "#e83e8c",
+                    EstimatedHours = 20,
+                    ScenarioCount = 15,
+                    Difficulty = "Master",
+                    Skills = new() { "Teaching Skills", "Error Recognition", "Constructive Feedback", "Mentoring Techniques" }
+                }
+            }
+        }
+    };
+
+    private void SelectLevel(ExperienceLevel level)
+    {
+        selectedLevel = level;
+    }
+
+    private void ResetSelection()
+    {
+        selectedLevel = null;
+    }
+
+    private void ViewStage(LearningStage stage, bool isLocked)
+    {
+        if (!isLocked)
+        {
+            // Navigate to scenarios filtered by this stage
+            Navigation.NavigateTo("/scenarios");
+        }
+    }
+
+    private string GetDifficultyColor(string difficulty) => difficulty switch
+    {
+        "Basic" => "success",
+        "Intermediate" => "warning",
+        "Advanced" => "primary",
+        "Expert" => "danger",
+        "Master" => "dark",
+        _ => "secondary"
+    };
+
+    public class ExperienceLevel
+    {
+        public string Name { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string HoursRange { get; set; } = "";
+        public string Icon { get; set; } = "";
+        public string Color { get; set; } = "";
+        public List<LearningStage> LearningPath { get; set; } = new();
+    }
+
+    public class LearningStage
+    {
+        public string Name { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string Icon { get; set; } = "";
+        public string Color { get; set; } = "";
+        public int EstimatedHours { get; set; }
+        public int ScenarioCount { get; set; }
+        public string Difficulty { get; set; } = "";
+        public List<string> Skills { get; set; } = new();
+    }
+}
