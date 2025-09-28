@@ -127,7 +127,7 @@ else
 
                         @if (airport.Runways.Any())
                         {
-                            <div>
+                            <div class="mb-3">
                                 <h6 class="mb-2">
                                     <i class="bi bi-arrows-angle-expand me-1"></i>Runways (@airport.Runways.Count)
                                 </h6>
@@ -153,6 +153,9 @@ else
                                 </div>
                             </div>
                         }
+
+                        <!-- Airport Charts Panel -->
+                        <AirportChartsPanel AirportIcao="@airport.Icao" IsCollapsible="true" StartExpanded="false" />
                     </div>
                 </div>
             </div>

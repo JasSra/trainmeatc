@@ -10,10 +10,72 @@
 
 <div class="container-fluid py-4">
     <div class="row">
-        <div class="col-md-8 mx-auto">
-            <h1 class="text-center mb-4">Select Training Scenario</h1>
-            
-            @if (scenarios == null)
+        <div class="col-12">
+            <div class="aviation-panel mb-4">
+                <div class="aviation-panel-header">
+                    <i class="bi bi-airplane"></i>
+                    Select Your Training Scenario
+                </div>
+                <p class="mb-0">Choose from VFR, IFR operations, or specialized cargo/commercial scenarios. Each scenario is designed to develop specific communication skills and aviation knowledge.</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Enhanced Filters -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Flight Rules</label>
+                            <select class="form-select" @bind="selectedFlightRules" @bind:after="FilterScenarios">
+                                <option value="">All Flight Rules</option>
+                                <option value="VFR">VFR - Visual Flight Rules</option>
+                                <option value="IFR">IFR - Instrument Flight Rules</option>
+                                <option value="Mixed">Mixed VFR/IFR</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Pilot Type</label>
+                            <select class="form-select" @bind="selectedPilotType" @bind:after="FilterScenarios">
+                                <option value="">All Pilot Types</option>
+                                <option value="Private">Private Pilot</option>
+                                <option value="Commercial">Commercial Pilot</option>
+                                <option value="Cargo">Cargo Operations</option>
+                                <option value="Airline">Airline Transport</option>
+                                <option value="Training">Training Flight</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Difficulty</label>
+                            <select class="form-select" @bind="selectedDifficulty" @bind:after="FilterScenarios">
+                                <option value="">All Difficulties</option>
+                                <option value="Basic">Basic</option>
+                                <option value="Intermediate">Intermediate</option>
+                                <option value="Advanced">Advanced</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Operation Type</label>
+                            <select class="form-select" @bind="selectedOperationType" @bind:after="FilterScenarios">
+                                <option value="">All Operations</option>
+                                <option value="Training">Training Flight</option>
+                                <option value="Cross-Country">Cross Country</option>
+                                <option value="Pattern Work">Pattern Work</option>
+                                <option value="Emergency">Emergency Procedures</option>
+                                <option value="Instrument Approach">Instrument Approach</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-12">
+            @if (filteredScenarios == null)
             {
                 <div class="text-center">
                     <div class="spinner-border" role="status">
@@ -22,40 +84,62 @@
                     <p>Loading scenarios...</p>
                 </div>
             }
-            else if (!scenarios.Any())
+            else if (!filteredScenarios.Any())
             {
-                <div class="alert alert-warning text-center">
-                    <h4>No scenarios available</h4>
-                    <p>No training scenarios found in the database.</p>
+                <div class="alert alert-info text-center">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <h4>No scenarios match your criteria</h4>
+                    <p>Try adjusting your filters to see more training scenarios.</p>
                 </div>
             }
             else
             {
-                <div class="row">
-                    @foreach (var scenario in scenarios)
+                <div class="row g-4">
+                    @foreach (var scenario in filteredScenarios)
                     {
-                        <div class="col-md-6 mb-4">
-                            <div class="card h-100 @(selectedScenario?.Id == scenario.Id ? "border-primary" : "")">
+                        <div class="col-xl-4 col-lg-6">
+                            <div class="card h-100 scenario-card @(selectedScenario?.Id == scenario.Id ? "selected" : "")" @onclick="() => SelectScenario(scenario)">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0 fw-bold">@scenario.Name</h6>
+                                    <div class="scenario-badges">
+                                        <span class="badge bg-@(GetFlightRulesBadgeColor(scenario.FlightRules))">@scenario.FlightRules</span>
+                                    </div>
+                                </div>
                                 <div class="card-body">
-                                    <h5 class="card-title">@scenario.Name</h5>
-                                    <p class="card-text">@(scenario.Kind ?? "General training scenario")</p>
-                                    
-                                    <div class="mb-2">
-                                        <small class="text-muted">
-                                            <i class="bi bi-geo-alt me-1"></i>@scenario.AirportIcao
-                                        </small>
+                                    <div class="scenario-meta mb-3">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <i class="bi bi-geo-alt text-muted me-2"></i>
+                                            <small class="text-muted">@scenario.AirportIcao</small>
+                                            <span class="mx-2">•</span>
+                                            <i class="bi bi-clock text-muted me-1"></i>
+                                            <small class="text-muted">@scenario.EstimatedDurationMinutes min</small>
+                                        </div>
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-person text-muted me-2"></i>
+                                            <small class="text-muted">@scenario.PilotType</small>
+                                            <span class="mx-2">•</span>
+                                            <i class="bi bi-activity text-muted me-1"></i>
+                                            <small class="text-muted">@scenario.OperationType</small>
+                                        </div>
                                     </div>
                                     
-                                    <div class="mb-3">
-                                        <span class="badge bg-@(GetDifficultyBadgeColor(scenario.Difficulty ?? "Basic"))">
-                                            @(scenario.Difficulty ?? "Basic")
-                                        </span>
-                                    </div>
+                                    <p class="card-text small">@(scenario.Kind ?? "Professional pilot communication training scenario")</p>
                                     
-                                    <button class="btn @(selectedScenario?.Id == scenario.Id ? "btn-primary" : "btn-outline-primary")" 
-                                            @onclick="() => SelectScenario(scenario)">
-                                        @(selectedScenario?.Id == scenario.Id ? "Selected" : "Select")
-                                    </button>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div class="scenario-tags">
+                                            <span class="badge bg-@(GetDifficultyBadgeColor(scenario.Difficulty ?? "Basic")) me-1">
+                                                @(scenario.Difficulty ?? "Basic")
+                                            </span>
+                                            @if (!string.IsNullOrEmpty(scenario.WeatherConditions))
+                                            {
+                                                <span class="badge bg-secondary">@scenario.WeatherConditions</span>
+                                            }
+                                        </div>
+                                        @if (selectedScenario?.Id == scenario.Id)
+                                        {
+                                            <i class="bi bi-check-circle-fill text-success"></i>
+                                        }
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -64,34 +148,72 @@
                 
                 @if (selectedScenario != null)
                 {
-                    <div class="card mt-4">
+                    <div class="card mt-4 selected-scenario-details">
+                        <div class="card-header bg-primary text-white">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-check-circle me-2"></i>
+                                    Selected: @selectedScenario.Name
+                                </h5>
+                                <span class="badge bg-light text-primary">@selectedScenario.FlightRules</span>
+                            </div>
+                        </div>
                         <div class="card-body">
-                            <h5 class="card-title">Selected Scenario: @selectedScenario.Name</h5>
-                            <p class="card-text">@(selectedScenario.Kind ?? "General training scenario")</p>
-                            
                             <div class="row">
-                                <div class="col-md-6">
-                                    <h6>Configuration</h6>
+                                <div class="col-lg-6">
+                                    <h6><i class="bi bi-gear me-2"></i>Configuration</h6>
                                     <ul class="list-unstyled">
                                         <li><strong>Airport:</strong> @selectedScenario.AirportIcao</li>
+                                        <li><strong>Flight Rules:</strong> @selectedScenario.FlightRules</li>
+                                        <li><strong>Pilot Type:</strong> @selectedScenario.PilotType</li>
+                                        <li><strong>Operation:</strong> @selectedScenario.OperationType</li>
                                         <li><strong>Difficulty:</strong> @(selectedScenario.Difficulty ?? "Basic")</li>
-                                        <li><strong>Type:</strong> @(selectedScenario.Kind ?? "Training")</li>
+                                        <li><strong>Duration:</strong> ~@selectedScenario.EstimatedDurationMinutes minutes</li>
                                     </ul>
                                 </div>
-                                <div class="col-md-6">
-                                    <h6>Training Focus</h6>
+                                <div class="col-lg-6">
+                                    <h6><i class="bi bi-target me-2"></i>Learning Objectives</h6>
                                     <p class="text-muted">
-                                        Practice standard phraseology and communication procedures for @selectedScenario.AirportIcao operations.
+                                        @(selectedScenario.Kind ?? $"Professional {selectedScenario.FlightRules} communication training for {selectedScenario.PilotType.ToLower()} operations at {selectedScenario.AirportIcao}.")
                                     </p>
+                                    @if (!string.IsNullOrEmpty(selectedScenario.WeatherConditions))
+                                    {
+                                        <p class="small">
+                                            <i class="bi bi-cloud me-1"></i>
+                                            <strong>Weather:</strong> @selectedScenario.WeatherConditions conditions
+                                        </p>
+                                    }
+                                    @if (!string.IsNullOrEmpty(selectedScenario.TrafficDensity))
+                                    {
+                                        <p class="small">
+                                            <i class="bi bi-activity me-1"></i>
+                                            <strong>Traffic:</strong> @selectedScenario.TrafficDensity density
+                                        </p>
+                                    }
                                 </div>
                             </div>
                             
-                            <div class="d-flex justify-content-between mt-4">
-                                <button class="btn btn-secondary" @onclick="GoBack">
-                                    <i class="bi bi-arrow-left me-2"></i>Back to Home
-                                </button>
+                            <hr>
+                            
+                            <!-- Airport Charts Section -->
+                            @if (!string.IsNullOrEmpty(selectedScenario.AirportIcao))
+                            {
+                                <div class="mb-4">
+                                    <AirportChartsPanel AirportIcao="@selectedScenario.AirportIcao" IsCollapsible="true" StartExpanded="false" />
+                                </div>
+                            }
+                            
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <button class="btn btn-outline-secondary me-2" @onclick="() => selectedScenario = null">
+                                        <i class="bi bi-arrow-left me-2"></i>Choose Different
+                                    </button>
+                                    <button class="btn btn-secondary" @onclick="GoBack">
+                                        <i class="bi bi-house me-2"></i>Back to Home
+                                    </button>
+                                </div>
                                 <button class="btn btn-success btn-lg" @onclick="StartSimulation">
-                                    <i class="bi bi-play-fill me-2"></i>Start Simulation
+                                    <i class="bi bi-play-fill me-2"></i>Start @selectedScenario.FlightRules Training
                                 </button>
                             </div>
                         </div>
@@ -104,16 +226,110 @@
 
 @code {
     private List<Scenario>? scenarios;
+    private List<Scenario>? filteredScenarios;
     private Scenario? selectedScenario;
+    
+    // Filter properties
+    private string selectedFlightRules = "";
+    private string selectedPilotType = "";
+    private string selectedDifficulty = "";
+    private string selectedOperationType = "";
     
     protected override async Task OnInitializedAsync()
     {
         scenarios = await DbContext.Scenarios.ToListAsync();
+        
+        // If no scenarios exist, create some sample ones for demo
+        if (scenarios.Count == 0)
+        {
+            await CreateSampleScenarios();
+            scenarios = await DbContext.Scenarios.ToListAsync();
+        }
+        
+        filteredScenarios = scenarios;
+    }
+    
+    private async Task CreateSampleScenarios()
+    {
+        var sampleScenarios = new List<Scenario>
+        {
+            new Scenario
+            {
+                Name = "VFR Pattern Work",
+                AirportIcao = "YSBK",
+                Kind = "Visual flight pattern training with tower communications",
+                Difficulty = "Basic",
+                FlightRules = "VFR",
+                PilotType = "Private",
+                OperationType = "Pattern Work",
+                WeatherConditions = "VMC",
+                TrafficDensity = "Light",
+                EstimatedDurationMinutes = 15,
+                PrimaryFrequency = "Tower"
+            },
+            new Scenario
+            {
+                Name = "IFR Approach Training",
+                AirportIcao = "YSBK",
+                Kind = "Instrument approach procedures and communication",
+                Difficulty = "Intermediate",
+                FlightRules = "IFR",
+                PilotType = "Commercial",
+                OperationType = "Instrument Approach",
+                WeatherConditions = "IMC",
+                TrafficDensity = "Moderate",
+                EstimatedDurationMinutes = 25,
+                PrimaryFrequency = "Approach"
+            },
+            new Scenario
+            {
+                Name = "Cargo Departure Procedures",
+                AirportIcao = "YSSY",
+                Kind = "Commercial cargo flight departure with complex routing",
+                Difficulty = "Advanced",
+                FlightRules = "IFR",
+                PilotType = "Cargo",
+                OperationType = "Cross-Country",
+                WeatherConditions = "VMC",
+                TrafficDensity = "Heavy",
+                EstimatedDurationMinutes = 20,
+                PrimaryFrequency = "Ground"
+            },
+            new Scenario
+            {
+                Name = "Emergency Procedures",
+                AirportIcao = "YSBK",
+                Kind = "Emergency communications and priority handling",
+                Difficulty = "Advanced",
+                FlightRules = "Mixed",
+                PilotType = "Training",
+                OperationType = "Emergency",
+                WeatherConditions = "Marginal",
+                TrafficDensity = "Moderate",
+                EstimatedDurationMinutes = 30,
+                PrimaryFrequency = "Tower"
+            }
+        };
+        
+        DbContext.Scenarios.AddRange(sampleScenarios);
+        await DbContext.SaveChangesAsync();
+    }
+    
+    private void FilterScenarios()
+    {
+        if (scenarios == null) return;
+        
+        filteredScenarios = scenarios.Where(s =>
+            (string.IsNullOrEmpty(selectedFlightRules) || s.FlightRules == selectedFlightRules) &&
+            (string.IsNullOrEmpty(selectedPilotType) || s.PilotType == selectedPilotType) &&
+            (string.IsNullOrEmpty(selectedDifficulty) || s.Difficulty == selectedDifficulty) &&
+            (string.IsNullOrEmpty(selectedOperationType) || s.OperationType == selectedOperationType)
+        ).ToList();
     }
     
     private void SelectScenario(Scenario scenario)
     {
-        selectedScenario = scenario;
+        selectedScenario = selectedScenario?.Id == scenario.Id ? null : scenario;
     }
     
     private string GetDifficultyBadgeColor(string difficulty)
@@ -123,6 +339,17 @@
             "basic" => "success",
             "intermediate" => "warning",
             "advanced" => "danger",
+            _ => "secondary"
+        };
+    }
+    
+    private string GetFlightRulesBadgeColor(string flightRules)
+    {
+        return flightRules.ToUpper() switch
+        {
+            "VFR" => "info",
+            "IFR" => "primary",
+            "MIXED" => "warning",
             _ => "secondary"
         };
     }

@@ -19,6 +19,13 @@ public class Airport
     public bool HasMaintenance { get; set; } = false;
     public string? FuelTypes { get; set; } // "100LL, JetA1, Diesel"
     
+    // Chart and documentation links
+    public string? VtcChartUrl { get; set; } // Visual Terminal Chart URL
+    public string? TacChartUrl { get; set; } // Terminal Area Chart URL
+    public string? ErrcChartUrl { get; set; } // En Route Chart URL
+    public string? PcaChartUrl { get; set; } // Planned Chart Area URL
+    public string? AipUrl { get; set; } // Aeronautical Information Publication URL
+    
     public ICollection<Runway> Runways { get; set; } = new List<Runway>();
     public ICollection<Scenario> Scenarios { get; set; } = new List<Scenario>();
 }
@@ -45,6 +52,17 @@ public class Scenario
     public int? Seed { get; set; }
     public string? InitialStateJson { get; set; }
     public string? RubricJson { get; set; }
+    
+    // Enhanced scenario categorization
+    public string FlightRules { get; set; } = "VFR"; // "VFR", "IFR", "Mixed"
+    public string PilotType { get; set; } = "Private"; // "Private", "Commercial", "Cargo", "Airline", "Training"
+    public string OperationType { get; set; } = "Training"; // "Training", "Cross-Country", "Pattern Work", "Emergency", "Instrument Approach"
+    public string? WeatherConditions { get; set; } // "VMC", "IMC", "Marginal", "Severe"
+    public string? TrafficDensity { get; set; } // "Light", "Moderate", "Heavy"
+    public string? PrimaryFrequency { get; set; } // Which frequency this scenario primarily uses
+    public int EstimatedDurationMinutes { get; set; } = 15;
+    public string? Prerequisites { get; set; } // JSON array of required skills/completions
+    public string? LearningObjectives { get; set; } // JSON array of learning goals
     
     public Airport? Airport { get; set; }
     public ICollection<Session> Sessions { get; set; } = new List<Session>();
