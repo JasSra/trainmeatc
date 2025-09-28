@@ -4,6 +4,8 @@
 @using PilotSim.Data
 @using PilotSim.Data.Models
 @using System.Text.Json
+@using Plotly.NET
+@using Plotly.NET.LayoutObjects
 @inject NavigationManager Navigation
 @inject SimDbContext DbContext
 @inject IJSRuntime JSRuntime
@@ -25,18 +27,109 @@
         <div class="row">
             <div class="col-12">
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h1>Session Debrief</h1>
                     <div>
-                        <button class="btn btn-secondary me-2" @onclick="GoToScenarios">
+                        <h1 class="mb-1">Session Debrief</h1>
+                        <p class="text-muted mb-0">
+                            <i class="bi bi-calendar me-1"></i>@GetSessionDate() • 
+                            <i class="bi bi-clock me-1"></i>@GetSessionDuration() • 
+                            <i class="bi bi-geo-alt me-1"></i>@session.Scenario?.AirportIcao
+                        </p>
+                    </div>
+                    <div>
+                        <div class="btn-group">
+                            <button class="btn btn-outline-secondary" @onclick="ShowPerformanceGraph">
+                                <i class="bi bi-graph-up me-2"></i>Performance Chart
+                            </button>
+                            <button class="btn btn-outline-info" @onclick="ExportData">
+                                <i class="bi bi-download me-2"></i>Export Data
+                            </button>
+                        </div>
+                        <button class="btn btn-secondary ms-2" @onclick="GoToScenarios">
                             <i class="bi bi-arrow-left me-2"></i>New Session
                         </button>
-                        <button class="btn btn-primary" @onclick="GoHome">
+                        <button class="btn btn-primary ms-2" @onclick="GoHome">
                             <i class="bi bi-house me-2"></i>Home
                         </button>
                     </div>
                 </div>
             </div>
         </div>
+        
+        <!-- Performance Overview Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card performance-card border-0">
+                    <div class="card-body text-center">
+                        <div class="performance-icon mb-2">
+                            <i class="bi bi-trophy-fill text-warning fs-2"></i>
+                        </div>
+                        <h3 class="card-title mb-1">@session.ScoreTotal</h3>
+                        <p class="text-muted small mb-0">Overall Score</p>
+                        <div class="progress mt-2" style="height: 4px;">
+                            <div class="progress-bar bg-warning" style="width: @(Math.Min(session.ScoreTotal, 100))%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card performance-card border-0">
+                    <div class="card-body text-center">
+                        <div class="performance-icon mb-2">
+                            <i class="bi bi-chat-dots-fill text-primary fs-2"></i>
+                        </div>
+                        <h3 class="card-title mb-1">@turns.Count</h3>
+                        <p class="text-muted small mb-0">Communications</p>
+                        <p class="small mb-0 text-success">@GetSuccessfulTurns() successful</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card performance-card border-0">
+                    <div class="card-body text-center">
+                        <div class="performance-icon mb-2">
+                            <i class="bi bi-clock-fill text-info fs-2"></i>
+                        </div>
+                        <h3 class="card-title mb-1">@GetAverageResponseTime()</h3>
+                        <p class="text-muted small mb-0">Avg Response Time</p>
+                        <p class="small mb-0">@GetSessionDuration() total</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card performance-card border-0">
+                    <div class="card-body text-center">
+                        <div class="performance-icon mb-2">
+                            <i class="bi bi-arrow-repeat text-danger fs-2"></i>
+                        </div>
+                        <h3 class="card-title mb-1">@GetRetryCount()</h3>
+                        <p class="text-muted small mb-0">Retries Required</p>
+                        <p class="small mb-0">@GetRetryPercentage()% of turns</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Performance Graph Container -->
+        @if (showPerformanceChart)
+        {
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="bi bi-graph-up me-2"></i>Performance Timeline
+                            </h5>
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => showPerformanceChart = false">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="performance-chart" style="height: 400px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
 
         <!-- Session Summary -->
         <div class="row mb-4">
@@ -350,6 +443,7 @@
     
     private Session? session;
     private List<Turn> turns = new();
+    private bool showPerformanceChart = false;
     
     protected override async Task OnInitializedAsync()
     {
@@ -363,6 +457,127 @@
         if (session?.Turns != null)
         {
             turns = session.Turns.ToList();
+        }
+    }
+    
+    private string GetSessionDate()
+    {
+        if (session?.StartedUtc == null) return "Unknown";
+        
+        try
+        {
+            var start = DateTime.Parse(session.StartedUtc);
+            return start.ToString("MMM dd, yyyy");
+        }
+        catch
+        {
+            return "Unknown";
+        }
+    }
+    
+    private int GetSuccessfulTurns()
+    {
+        return turns.Count(t => GetTurnScore(t) >= 0.7);
+    }
+    
+    private string GetAverageResponseTime()
+    {
+        // This would need actual timing data from the session
+        return "2.3s"; // Placeholder
+    }
+    
+    private int GetRetryCount()
+    {
+        return turns.Count(t => !string.IsNullOrEmpty(t.Verdict) && t.Verdict.Contains("retry"));
+    }
+    
+    private string GetRetryPercentage()
+    {
+        if (turns.Count == 0) return "0";
+        return Math.Round((double)GetRetryCount() / turns.Count * 100, 1).ToString();
+    }
+    
+    private async Task ShowPerformanceGraph()
+    {
+        showPerformanceChart = !showPerformanceChart;
+        
+        if (showPerformanceChart)
+        {
+            StateHasChanged();
+            await Task.Delay(100); // Allow DOM to render
+            await RenderPerformanceChart();
+        }
+    }
+    
+    private async Task RenderPerformanceChart()
+    {
+        try
+        {
+            var turnIndices = turns.Select(t => t.Idx ?? 0).ToArray();
+            var turnScores = turns.Select(t => GetTurnScore(t) * 100).ToArray();
+            
+            var chartData = new
+            {
+                x = turnIndices,
+                y = turnScores,
+                mode = "lines+markers",
+                type = "scatter",
+                name = "Turn Score",
+                line = new { color = "#1e3a8a", width = 3 },
+                marker = new { size = 8, color = "#0ea5e9" }
+            };
+            
+            var layout = new
+            {
+                title = "Communication Performance Over Time",
+                xaxis = new { title = "Turn Number" },
+                yaxis = new { title = "Score (%)", range = new[] { 0, 100 } },
+                showlegend = false,
+                plot_bgcolor = "rgba(0,0,0,0)",
+                paper_bgcolor = "rgba(0,0,0,0)"
+            };
+            
+            var config = new
+            {
+                responsive = true,
+                displayModeBar = true,
+                modeBarButtonsToRemove = new[] { "pan2d", "select2d", "lasso2d", "resetScale2d" }
+            };
+            
+            await JSRuntime.InvokeVoidAsync("Plotly.newPlot", "performance-chart", new[] { chartData }, layout, config);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error rendering chart: {ex.Message}");
+        }
+    }
+    
+    private async Task ExportData()
+    {
+        try
+        {
+            var exportData = new
+            {
+                sessionId = SessionId,
+                scenario = session?.Scenario?.Name,
+                airport = session?.Scenario?.AirportIcao,
+                duration = GetSessionDuration(),
+                totalScore = session?.ScoreTotal,
+                turns = turns.Select(t => new
+                {
+                    turn = t.Idx,
+                    transcript = t.UserTranscript,
+                    verdict = t.Verdict,
+                    score = GetTurnScore(t)
+                }).ToArray()
+            };
+            
+            var json = JsonSerializer.Serialize(exportData, new JsonSerializerOptions { WriteIndented = true });
+            await JSRuntime.InvokeVoidAsync("downloadFile", $"session-{SessionId}-debrief.json", json, "application/json");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error exporting data: {ex.Message}");
         }
     }
     
