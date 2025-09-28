@@ -60,7 +60,7 @@
                                 </div>
                                 
                                 <div class="form-check mb-4">
-                                    <input class="form-check-input" type="checkbox" id="disclaimerAccept" @bind="DisclaimerAccepted" @onchange="OnDisclaimerChanged">
+                                    <input class="form-check-input" type="checkbox" id="disclaimerAccept" @bind="DisclaimerAccepted" @bind:event="onchange">
                                     <label class="form-check-label" for="disclaimerAccept">
                                         I understand this is for training purposes only and accept the terms above
                                     </label>
@@ -195,11 +195,6 @@
 
 @code {
     private bool DisclaimerAccepted = false;
-    
-    private void OnDisclaimerChanged()
-    {
-        StateHasChanged(); // Force a re-render
-    }
     
     private void StartLearningJourney()
     {
