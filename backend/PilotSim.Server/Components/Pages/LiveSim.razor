@@ -184,6 +184,85 @@
                     </div>
                 </div>
 
+                <!-- Guidance Cards Row -->
+                <div class="col-12">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="card h-100 shadow-sm">
+                                <div class="card-header py-2"><i class="bi bi-bullseye me-1"></i>Lesson Focus</div>
+                                <div class="card-body small">
+                                    <strong>@(scenario.Kind ?? scenario.OperationType ?? "Training")</strong>
+                                    <p class="mb-2">@GetLessonSummary()</p>
+                                    @if (learningObjectives.Any())
+                                    {
+                                        <ul class="mb-0 ps-3">
+                                            @foreach (var lo in learningObjectives.Take(3)) { <li>@lo</li> }
+                                        </ul>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card h-100 shadow-sm">
+                                <div class="card-header py-2"><i class="bi bi-crosshair me-1"></i>Current Situation</div>
+                                <div class="card-body small">
+                                    <div><strong>Airport:</strong> @scenario.AirportIcao @if (scenario.Airport != null){<span class="text-muted">- @scenario.Airport.Name</span>}</div>
+                                    <div><strong>Diff:</strong> @(scenario.Difficulty ?? "Basic")</div>
+                                    <div><strong>WX:</strong> @(scenario.WeatherConditions ?? "N/A")</div>
+                                    <div><strong>Traffic:</strong> @(scenario.TrafficDensity ?? "N/A")</div>
+                                    @if (pilotProfile?.IsLive == true)
+                                    {
+                                        <div class="mt-2"><strong>Position:</strong><br />Lat @pilotProfile.CurrentLatitude?.ToString("F3"), Lon @pilotProfile.CurrentLongitude?.ToString("F3")<br />Alt @pilotProfile.CurrentAltitude?.ToString("F0")ft Phase @pilotProfile.CurrentPhase</div>
+                                    }
+                                    else
+                                    {
+                                        <div class="mt-2 text-muted">No live position feed.</div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card h-100 shadow-sm">
+                                <div class="card-header py-2"><i class="bi bi-lightning-charge me-1"></i>Next Action</div>
+                                <div class="card-body small">
+                                    @if (isRecording)
+                                    {
+                                        <div class="text-danger"><i class="bi bi-mic-fill me-1"></i>Transmit clearly...</div>
+                                    }
+                                    else if (isProcessingTurn)
+                                    {
+                                        <div class="d-flex align-items-center"><div class="spinner-border spinner-border-sm me-2" role="status"></div>Evaluating your last transmission...</div>
+                                    }
+                                    else if (isBlocked && !string.IsNullOrEmpty(blockReason))
+                                    {
+                                        <div class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>@blockReason</div>
+                                        <button class="btn btn-outline-secondary btn-sm mt-2" @onclick="ClearBlock"><i class="bi bi-arrow-clockwise me-1"></i>Retry</button>
+                                    }
+                                    else if (lastExpectedReadbacks?.Any() == true)
+                                    {
+                                        <div class="mb-1"><strong>Expected Readback:</strong></div>
+                                        <ul class="ps-3 mb-2">
+                                            @foreach (var rb in lastExpectedReadbacks.Take(3)) { <li>@rb</li> }
+                                        </ul>
+                                        <div class="text-muted">Match required elements & callsign.</div>
+                                    }
+                                    else if (latestVerdict?.Improvements?.Any() == true)
+                                    {
+                                        <div class="mb-1"><strong>Improve:</strong></div>
+                                        <ul class="ps-3 mb-0">
+                                            @foreach (var imp in latestVerdict.Improvements.Take(3)) { <li>@imp</li> }
+                                        </ul>
+                                    }
+                                    else
+                                    {
+                                        <div>@GetInitialPrompt()</div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="col-md-6">
                     <div class="aviation-panel">
                         <div class="aviation-panel-header"><i class="bi bi-mic"></i>Radio Communication</div>
@@ -193,7 +272,7 @@
                                     @ontouchstart="StartRecording" @ontouchend="StopRecording"
                                     disabled="@(isBlocked || isProcessingTurn)">
                                 <i class="bi bi-@(isRecording ? "mic-fill" : "mic") me-2"></i>
-                                @(isRecording ? "TRANSMITTING" : (isBlocked ? "BLOCKED" : "PUSH TO TALK"))
+                                @(isRecording ? "TRANSMITTING" : (isBlocked ? "BLOCKED" : (isProcessingTurn ? "PROCESSING..." : "PUSH TO TALK")))
                             </button>
                         </div>
                         <div class="audio-level-meter"><div class="audio-level-bar" style="width: @(audioLevel * 100)%"></div></div>
@@ -204,6 +283,10 @@
                                 <div class="retry-message"><i class="bi bi-exclamation-triangle"></i><span class="ms-2">@blockReason</span></div>
                                 <div class="retry-actions"><button class="btn btn-sm btn-outline-light" @onclick="ClearBlock"><i class="bi bi-arrow-clockwise me-1"></i>Retry</button></div>
                             </div>
+                        }
+                        @if (isProcessingTurn && !isRecording)
+                        {
+                            <div class="mt-3 text-center small text-info"><div class="spinner-border spinner-border-sm me-2" role="status"></div>Processing turn - stand by...</div>
                         }
                     </div>
                     <div class="aviation-panel">
@@ -329,6 +412,7 @@
     private bool isRecording; private bool isBlocked; private string? blockReason;
     private string currentTranscript = string.Empty; private bool isPartialTranscript;
     private string? lastAtcTransmission; private string? lastTtsAudioPath;
+    private List<string>? lastExpectedReadbacks;
     private int totalScore; private int scoreDelta; private int pendingScoreDelta;
     private double audioLevel; private bool? microphoneTestResult; private bool microphoneTestInProgress;
     private bool speakerTestInProgress; private bool speakerTestRan; private bool speakerTestSuccess;
@@ -348,8 +432,8 @@
         hubConnection = new HubConnectionBuilder().WithUrl(Navigation.ToAbsoluteUri("/hubs/live")).Build();
         hubConnection.On<string, double?>("partialTranscript", (t, c) => { currentTranscript = t; isPartialTranscript = c < 0.8; InvokeAsync(StateHasChanged); });
         hubConnection.On<InstructorVerdictDto>("instructorVerdict", verdict => { latestVerdict = verdict; pendingScoreDelta = verdict?.ScoreDelta ?? 0; isPartialTranscript = false; if (!string.IsNullOrWhiteSpace(verdict?.BlockReason) && verdict?.Critical?.Any() == true){ blockReason = verdict.BlockReason; isBlocked = true; } else { blockReason = null; isBlocked = false; } InvokeAsync(StateHasChanged); });
-        hubConnection.On<AtcReplyDto>("atcTransmission", tx => { lastAtcTransmission = tx?.Transmission; InvokeAsync(StateHasChanged); });
-        hubConnection.On<string>("ttsReady", path => { lastTtsAudioPath = path; InvokeAsync(StateHasChanged); });
+        hubConnection.On<AtcReplyDto>("atcTransmission", async tx => { lastAtcTransmission = tx?.Transmission; lastExpectedReadbacks = tx?.ExpectedReadback; await InvokeAsync(StateHasChanged); if (!string.IsNullOrEmpty(lastTtsAudioPath)) await PlayAtcAudio(); });
+        hubConnection.On<string>("ttsReady", async path => { lastTtsAudioPath = path; await InvokeAsync(StateHasChanged); await PlayAtcAudio(); });
         hubConnection.On<int>("scoreTick", newTotal => { var prev = totalScore; totalScore = newTotal; var computed = newTotal - prev; scoreDelta = computed != 0 ? computed : pendingScoreDelta; pendingScoreDelta = 0; InvokeAsync(StateHasChanged); if (scoreDelta != 0) Task.Delay(3000).ContinueWith(_ => { scoreDelta = 0; InvokeAsync(StateHasChanged); }); });
         await hubConnection.StartAsync();
     }
@@ -381,7 +465,7 @@
 
     private void ResetSessionState()
     {
-        completedTurns.Clear(); latestVerdict = null; lastAtcTransmission = null; currentTranscript = string.Empty; isPartialTranscript = false; isBlocked = false; blockReason = null; totalScore = 0; scoreDelta = 0; pendingScoreDelta = 0; isProcessingTurn = false; audioLevel = 0;
+        completedTurns.Clear(); latestVerdict = null; lastAtcTransmission = null; lastExpectedReadbacks = null; currentTranscript = string.Empty; isPartialTranscript = false; isBlocked = false; blockReason = null; totalScore = 0; scoreDelta = 0; pendingScoreDelta = 0; isProcessingTurn = false; audioLevel = 0; lastTtsAudioPath = null;
     }
 
     private async Task StartRecording()
@@ -427,8 +511,8 @@
                 latestVerdict = turnResult.Verdict; pendingScoreDelta = turnResult.Verdict.ScoreDelta; scoreDelta = pendingScoreDelta;
                 if (!string.IsNullOrWhiteSpace(turnResult.Verdict.BlockReason) && turnResult.Verdict.Critical?.Any() == true){ blockReason = turnResult.Verdict.BlockReason; isBlocked = true; } else { blockReason = null; isBlocked = false; }
             }
-            if (turnResult.AtcResponse != null) lastAtcTransmission = turnResult.AtcResponse.Transmission;
-            if (!string.IsNullOrEmpty(turnResult.TtsAudioPath)) lastTtsAudioPath = turnResult.TtsAudioPath;
+            if (turnResult.AtcResponse != null) { lastAtcTransmission = turnResult.AtcResponse.Transmission; lastExpectedReadbacks = turnResult.AtcResponse.ExpectedReadback; }
+            if (!string.IsNullOrEmpty(turnResult.TtsAudioPath)) { lastTtsAudioPath = turnResult.TtsAudioPath; await PlayAtcAudio(); }
             isProcessingTurn = false;
             completedTurns.Add(new Turn { Idx = completedTurns.Count + 1, UserTranscript = currentTranscript });
             if (scoreDelta != 0) _ = Task.Delay(3000).ContinueWith(_ => { scoreDelta = 0; InvokeAsync(StateHasChanged); });
@@ -439,6 +523,26 @@
 
     [JSInvokable] public void ProcessSttResultInstance(string text, double confidence){ currentTranscript = text; isPartialTranscript = confidence < 0.8; InvokeAsync(StateHasChanged); }
     [JSInvokable] public void HandleSttErrorInstance(string error){ blockReason = $"Speech recognition error: {error}"; isBlocked = true; isProcessingTurn = false; InvokeAsync(StateHasChanged); }
+
+    private string GetLessonSummary()
+    {
+        if (learningObjectives.Any()) return string.Join(", ", learningObjectives.Take(2));
+        return scenario?.Kind ?? "Aviation communication practice";
+    }
+
+    private string GetInitialPrompt()
+    {
+        var op = scenario?.OperationType ?? scenario?.Kind ?? string.Empty;
+        if (op.Contains("Taxi", StringComparison.OrdinalIgnoreCase))
+            return "Initiate with a basic taxi request: '[Airport] Ground, [Callsign], at [Location], with ATIS [Letter], request taxi.'";
+        if (op.Contains("Departure", StringComparison.OrdinalIgnoreCase))
+            return "Provide a departure request including callsign, aircraft type, position and intentions.";
+        if (op.Contains("Circuit", StringComparison.OrdinalIgnoreCase) || op.Contains("Pattern", StringComparison.OrdinalIgnoreCase))
+            return "Report ready / position with circuit intentions and runway awareness.";
+        if (op.Contains("Approach", StringComparison.OrdinalIgnoreCase) || op.Contains("Arrival", StringComparison.OrdinalIgnoreCase))
+            return "Make initial approach call: position, altitude, ATIS received, intentions.";
+        return "Use proper Australian phraseology. Include callsign and required elements.";
+    }
 
     private void ToggleBreakdown() => showBreakdown = !showBreakdown;
     private void GoBack() => Navigation.NavigateTo("/scenarios");

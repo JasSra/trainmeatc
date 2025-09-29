@@ -89,25 +89,29 @@ public class SimulationController : ControllerBase
             string? userAudioPath = null;
             {
                 var sw = System.Diagnostics.Stopwatch.StartNew();
-                using var audioStream = request.Audio.OpenReadStream();
-                // Persist original audio (WAV/other) for replay
+                // Persist original audio first so we can open a SEEKABLE FileStream for STT.
+                // Using the non-seekable ReferenceReadStream directly causes retry failures in the OpenAI SDK
+                // ("The inner stream position has changed unexpectedly") when the retry policy re-reads content.
                 var ext = Path.GetExtension(request.Audio.FileName);
-                if (string.IsNullOrWhiteSpace(ext) || ext.Length > 5) ext = ".wav"; // fallback
+                if (string.IsNullOrWhiteSpace(ext) || ext.Length > 5) ext = ".webm"; // default to webm from MediaRecorder
                 var audioDir = Path.Combine("wwwroot", "useraudio");
                 Directory.CreateDirectory(audioDir);
                 userAudioPath = Path.Combine(audioDir, $"u_{Guid.NewGuid():N}{ext}");
-                using (var fs = System.IO.File.Create(userAudioPath))
+                await using (var target = System.IO.File.Create(userAudioPath))
+                await using (var upload = request.Audio.OpenReadStream())
                 {
-                    await request.Audio.CopyToAsync(fs, cancellationToken);
+                    await upload.CopyToAsync(target, cancellationToken);
                 }
+
+                // Use a fresh FileStream (seekable) for STT so OpenAI client retries can rewind.
+                await using var sttStream = System.IO.File.OpenRead(userAudioPath);
                 var publicUserAudioPath = "/" + userAudioPath.Replace("\\", "/");
                 var biasPrompt = "Use Australian aviation terms. Airport identifiers YSSY, YBBN, YMML, YPAD. Words: QNH, runway, squawk, kilo, papa, hPa. Callsign format VH-XXX.";
-                var sttResult = await _sttService.TranscribeAsync(audioStream, biasPrompt, cancellationToken);
+                var sttResult = await _sttService.TranscribeAsync(sttStream, biasPrompt, cancellationToken);
                 sw.Stop();
                 sttMs = (int)sw.ElapsedMilliseconds;
                 transcript = sttResult.Text;
-                // Replace local path with public path after save
-                userAudioPath = publicUserAudioPath;
+                userAudioPath = publicUserAudioPath; // convert to public path after save
             }
 
             // Get current simulation state

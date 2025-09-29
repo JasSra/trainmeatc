@@ -12,3 +12,4 @@ publish/
 .fake
 /backend/PilotSim.Server/wwwroot/useraudio
 /backend/.vs
+/backend/PilotSim.Server/wwwroot/audio
