@@ -1,4 +1,5 @@
 @page "/simulation/{scenarioId:int}"
+@rendermode InteractiveServer
 @using Microsoft.AspNetCore.Components
 @using Microsoft.EntityFrameworkCore
 @using Microsoft.AspNetCore.SignalR.Client
@@ -22,116 +23,131 @@
     {
         <div class="d-flex justify-content-center align-items-center h-100">
             <div class="text-center">
-                <div class="spinner-border" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
+                <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
                 <p>Loading scenario...</p>
             </div>
         </div>
     }
     else if (currentSession == null)
     {
+        <!-- Setup Screen -->
         <div class="container-fluid py-4">
             <div class="row justify-content-center">
-                <div class="col-md-8">
+                <div class="col-lg-10">
                     <div class="aviation-panel">
-                        <div class="aviation-panel-header">
-                            <i class="bi bi-airplane-engines"></i>
-                            Training Session Setup
-                        </div>
-                        
-                        <div class="row">
+                        <div class="aviation-panel-header"><i class="bi bi-airplane-engines"></i>Training Session Setup</div>
+                        <div class="row gy-4">
                             <div class="col-md-8">
                                 <h3>@scenario.Name</h3>
                                 <p class="text-muted mb-3">@(scenario.Kind ?? "Aviation communication training scenario")</p>
-                                
-                                <div class="row mb-4">
-                                    <div class="col-md-6">
-                                        <h6><i class="bi bi-geo-alt me-1"></i>Airport</h6>
-                                        <p class="mb-2"><strong>@scenario.AirportIcao</strong></p>
-                                        
-                                        <h6><i class="bi bi-speedometer me-1"></i>Difficulty</h6>
-                                        <span class="scenario-difficulty difficulty-@(scenario.Difficulty?.ToLower() ?? "basic")">
-                                            @(scenario.Difficulty ?? "Basic")
-                                        </span>
+                                <div class="row mb-3">
+                                    <div class="col-sm-6 mb-3">
+                                        <h6 class="mb-1"><i class="bi bi-geo-alt me-1"></i>Airport</h6>
+                                        <p class="mb-2"><strong>@scenario.AirportIcao</strong> @if (scenario.Airport != null){<span class="text-muted">- @scenario.Airport.Name</span>}</p>
+                                        <h6 class="mb-1"><i class="bi bi-speedometer me-1"></i>Difficulty</h6>
+                                        <span class="scenario-difficulty difficulty-@(scenario.Difficulty?.ToLower() ?? "basic")">@(scenario.Difficulty ?? "Basic")</span>
                                     </div>
-                                    <div class="col-md-6">
-                                        <h6><i class="bi bi-headphones me-1"></i>Audio Check</h6>
-                                        <p class="text-muted mb-2">Verify both your microphone and speakers before starting</p>
-                                        <div class="d-flex gap-2 flex-wrap">
-                                            <button class="btn btn-outline-primary btn-sm" @onclick="TestMicrophone" disabled="@microphoneTestInProgress">
-                                                @if (microphoneTestInProgress)
-                                                {
-                                                    <span class="spinner-border spinner-border-sm me-1" role="status"></span>
-                                                }
-                                                <i class="bi bi-mic-fill me-1"></i>
-                                                @(microphoneTestInProgress ? "Checking..." : "Test Microphone")
-                                            </button>
-                                            <button class="btn btn-outline-primary btn-sm" @onclick="TestSpeakers" disabled="@speakerTestInProgress">
-                                                @if (speakerTestInProgress)
-                                                {
-                                                    <span class="spinner-border spinner-border-sm me-1" role="status"></span>
-                                                }
-                                                <i class="bi bi-volume-up-fill me-1"></i>
-                                                @(speakerTestInProgress ? "Playing..." : "Test Speakers")
-                                            </button>
-                                        </div>
-                                        <div class="mt-2 d-flex flex-column gap-1">
-                                            @if (microphoneTestResult != null)
-                                            {
-                                                <span class="badge rounded-pill @(microphoneTestResult.Value ? "bg-success-subtle text-success" : "bg-danger-subtle text-danger")">
-                                                    <i class="bi bi-@(microphoneTestResult.Value ? "mic-fill" : "mic-mute") me-1"></i>
-                                                    @(microphoneTestResult.Value ? "Microphone detected" : "Microphone not available")
-                                                </span>
-                                            }
-                                            @if (!string.IsNullOrEmpty(microphoneTestMessage))
-                                            {
-                                                <small class="text-muted">@microphoneTestMessage</small>
-                                            }
-                                            @if (speakerTestRan)
-                                            {
-                                                <span class="badge rounded-pill @(speakerTestSuccess ? "bg-info-subtle text-info" : "bg-danger-subtle text-danger")">
-                                                    <i class="bi bi-@(speakerTestSuccess ? "volume-up" : "exclamation-triangle") me-1"></i>
-                                                    @(speakerTestSuccess ? "Test tone played" : "Speaker playback failed")
-                                                </span>
-                                            }
-                                            @if (!string.IsNullOrEmpty(speakerTestMessage))
-                                            {
-                                                <small class="text-muted">@speakerTestMessage</small>
-                                            }
-                                        </div>
+                                    <div class="col-sm-6 mb-3">
+                                        <h6 class="mb-1"><i class="bi bi-sliders me-1"></i>Scenario Profile</h6>
+                                        <ul class="list-unstyled small mb-0">
+                                            <li><strong>Flight Rules:</strong> @scenario.FlightRules</li>
+                                            <li><strong>Pilot Type:</strong> @scenario.PilotType</li>
+                                            <li><strong>Operation:</strong> @scenario.OperationType</li>
+                                            @if (!string.IsNullOrWhiteSpace(scenario.WeatherConditions)) {<li><strong>Weather:</strong> @scenario.WeatherConditions</li>}
+                                            @if (!string.IsNullOrWhiteSpace(scenario.TrafficDensity)) {<li><strong>Traffic:</strong> @scenario.TrafficDensity</li>}
+                                            @if (!string.IsNullOrWhiteSpace(scenario.PrimaryFrequency)) {<li><strong>Primary Freq:</strong> @scenario.PrimaryFrequency</li>}
+                                        </ul>
                                     </div>
                                 </div>
-                                
-                                <div class="alert alert-info">
+                                <div class="mb-3">
+                                    <h6 class="mb-1"><i class="bi bi-building me-1"></i>Airport Details</h6>
+                                    @if (scenario.Airport != null)
+                                    {
+                                        <div class="small mb-2">
+                                            <strong>Frequencies:</strong>
+                                            @if(!string.IsNullOrEmpty(scenario.Airport.TowerFreq)){<span class="badge bg-secondary me-1" title="Tower">@scenario.Airport.TowerFreq</span>}
+                                            @if(!string.IsNullOrEmpty(scenario.Airport.GroundFreq)){<span class="badge bg-secondary me-1" title="Ground">@scenario.Airport.GroundFreq</span>}
+                                            @if(!string.IsNullOrEmpty(scenario.Airport.AtisFreq)){<span class="badge bg-secondary me-1" title="ATIS">@scenario.Airport.AtisFreq</span>}
+                                            @if(!string.IsNullOrEmpty(scenario.Airport.AppFreq)){<span class="badge bg-secondary me-1" title="Approach">@scenario.Airport.AppFreq</span>}
+                                        </div>
+                                        @if (scenario.Airport.Runways?.Any() == true)
+                                        {
+                                            <div class="small"><strong>Runways:</strong> @string.Join(", ", scenario.Airport.Runways.Take(6).Select(r => r.Ident)) @if (scenario.Airport.Runways.Count > 6){<span class="text-muted">(+@((scenario.Airport.Runways.Count)-6))</span>}</div>
+                                        }
+                                    }
+                                    else { <div class="small text-muted">No airport metadata loaded.</div> }
+                                </div>
+                                @if (learningObjectives.Any())
+                                {
+                                    <div class="mb-3 small">
+                                        <h6 class="mb-1"><i class="bi bi-bullseye me-1"></i>Learning Objectives</h6>
+                                        <ul class="mb-0 ps-3">@foreach (var lo in learningObjectives.Take(5)) { <li>@lo</li> }</ul>
+                                    </div>
+                                }
+                                <div class="alert alert-info mb-0">
                                     <i class="bi bi-info-circle me-2"></i>
-                                    <strong>Session Instructions:</strong>
-                                    Use professional aviation phraseology. Press and hold the microphone button while speaking. 
-                                    Follow ATC instructions promptly and acknowledge all communications.
+                                    <strong>Instructions:</strong> Use professional phraseology. Press and hold the mic while speaking. Acknowledge all ATC communications.
                                 </div>
                             </div>
-                            <div class="col-md-4 text-center">
-                                <div class="aviation-panel-header">
-                                    <i class="bi bi-shield-check"></i>
-                                    Session Ready
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <h6 class="mb-2"><i class="bi bi-airplane me-1"></i>Aircraft</h6>
+                                    @if (pilotProfile?.Aircraft != null)
+                                    {
+                                        <div class="small">
+                                            <strong>@pilotProfile.Aircraft.Type</strong> (@pilotProfile.Aircraft.Category)<br />
+                                            <span class="text-muted">@pilotProfile.Aircraft.Manufacturer</span><br />
+                                            <span class="text-muted">Wake: @pilotProfile.Aircraft.WakeCategory</span>
+                                        </div>
+                                    }
+                                    else { <div class="small text-muted">No active aircraft profile.</div> }
                                 </div>
-                                <p class="text-muted mb-4">All systems operational and ready for training.</p>
-                                
+                                <div class="mb-3">
+                                    <h6 class="mb-2"><i class="bi bi-crosshair me-1"></i>Current Position</h6>
+                                    @if (pilotProfile?.IsLive == true)
+                                    {
+                                        <div class="small">
+                                            Lat: @pilotProfile.CurrentLatitude?.ToString("F4")<br />
+                                            Lon: @pilotProfile.CurrentLongitude?.ToString("F4")<br />
+                                            Alt: @pilotProfile.CurrentAltitude?.ToString("F0") ft<br />
+                                            Phase: @pilotProfile.CurrentPhase
+                                        </div>
+                                    }
+                                    else { <div class="small text-muted">No live position data.</div> }
+                                </div>
+                                <div class="mb-3">
+                                    <h6 class="mb-2"><i class="bi bi-headphones me-1"></i>Audio Check</h6>
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        <button class="btn btn-outline-primary btn-sm" @onclick="TestMicrophone" disabled="@microphoneTestInProgress">
+                                            @if (microphoneTestInProgress){<span class="spinner-border spinner-border-sm me-1" role="status"></span>}
+                                            <i class="bi bi-mic-fill me-1"></i>@(microphoneTestInProgress ? "Checking..." : "Test Mic")
+                                        </button>
+                                        <button class="btn btn-outline-primary btn-sm" @onclick="TestSpeakers" disabled="@speakerTestInProgress">
+                                            @if (speakerTestInProgress){<span class="spinner-border spinner-border-sm me-1" role="status"></span>}
+                                            <i class="bi bi-volume-up-fill me-1"></i>@(speakerTestInProgress ? "Playing..." : "Test Spk")
+                                        </button>
+                                    </div>
+                                    <div class="mt-2 small">
+                                        @if (microphoneTestResult != null)
+                                        {<div class="mb-1"><span class="badge rounded-pill @(microphoneTestResult.Value ? "bg-success-subtle text-success" : "bg-danger-subtle text-danger")"><i class="bi bi-@(microphoneTestResult.Value ? "mic-fill" : "mic-mute") me-1"></i>@(microphoneTestResult.Value ? "Mic OK" : "Mic Error")</span></div>}
+                                        @if (!string.IsNullOrEmpty(microphoneTestMessage)){<div class="text-muted">@microphoneTestMessage</div>}
+                                        @if (speakerTestRan){<div class="mb-1"><span class="badge rounded-pill @(speakerTestSuccess ? "bg-info-subtle text-info" : "bg-danger-subtle text-danger")"><i class="bi bi-@(speakerTestSuccess ? "volume-up" : "exclamation-triangle") me-1"></i>@(speakerTestSuccess ? "Tone Played" : "Speaker Error")</span></div>}
+                                        @if (!string.IsNullOrEmpty(speakerTestMessage)){<div class="text-muted">@speakerTestMessage</div>}
+                                    </div>
+                                </div>
                                 <div class="d-grid gap-2">
-                                    <button class="btn btn-aviation-primary btn-lg" @onclick="StartSession" disabled="@isStartingSession">
+                                    <button class="btn btn-aviation-primary" @onclick="StartSession" disabled="@isStartingSession">
                                         @if (isStartingSession)
                                         {
                                             <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                                            <span>Preparing Session...</span>
+                                            <span>Preparing...</span>
                                         }
                                         else
                                         {
-                                            <i class="bi bi-play-fill me-2"></i>Start Training Session
+                                            <span><i class="bi bi-play-fill me-2"></i>Start Session</span>
                                         }
                                     </button>
-                                    <button class="btn btn-outline-secondary" @onclick="GoBack">
-                                        <i class="bi bi-arrow-left me-2"></i>Back to Scenarios
-                                    </button>
+                                    <button class="btn btn-outline-secondary" @onclick="GoBack"><i class="bi bi-arrow-left me-2"></i>Back</button>
                                 </div>
                             </div>
                         </div>
@@ -142,309 +158,155 @@
     }
     else
     {
-        <!-- Professional Aviation Training Interface -->
+        <!-- Live Session Interface -->
         <div class="container-fluid py-3">
             <div class="row g-3">
-                <!-- Session Header -->
                 <div class="col-12">
                     <div class="aviation-panel">
-                        <div class="aviation-panel-header">
-                            <i class="bi bi-broadcast"></i>
-                            Live Training Session - @scenario.Name
-                        </div>
+                        <div class="aviation-panel-header"><i class="bi bi-broadcast"></i>Live Training Session - @scenario.Name</div>
                         <div class="row align-items-center">
-                            <div class="col-md-6">
-                                <div class="session-status @(isRecording ? "recording" : "active")">
-                                    <i class="bi bi-@(isRecording ? "mic-fill" : "radio") me-1"></i>
-                                    @(isRecording ? "Recording" : "Active")
-                                </div>
+                            <div class="col-md-8 d-flex flex-wrap gap-3 align-items-center">
+                                <div class="session-status @(isRecording ? "recording" : "active")"><i class="bi bi-@(isRecording ? "mic-fill" : "radio") me-1"></i>@(isRecording ? "Recording" : "Active")</div>
                                 <small class="text-muted">@scenario.AirportIcao • Session @currentSession.Id</small>
+                                <small class="text-muted">FR: @scenario.FlightRules | WX: @(scenario.WeatherConditions ?? "N/A") | Traffic: @(scenario.TrafficDensity ?? "N/A")</small>
+                                @if (pilotProfile?.IsLive == true)
+                                {<small class="text-muted">Pos: @pilotProfile.CurrentLatitude?.ToString("F3"), @pilotProfile.CurrentLongitude?.ToString("F3") Alt @pilotProfile.CurrentAltitude?.ToString("F0")ft</small>}
                             </div>
-                            <div class="col-md-6 text-end">
+                            <div class="col-md-4 text-end">
                                 <div class="score-display">
                                     <span class="score-value">@totalScore</span>
                                     <span class="score-label">Score</span>
                                     @if (scoreDelta != 0)
-                                    {
-                                        <div class="score-delta @(scoreDelta > 0 ? "positive" : "negative")">
-                                            @(scoreDelta > 0 ? "+" : "")@scoreDelta
-                                        </div>
-                                    }
+                                    {<div class="score-delta @(scoreDelta > 0 ? "positive" : "negative")">@(scoreDelta > 0 ? "+" : "")@scoreDelta</div>}
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Main Training Interface -->
                 <div class="col-md-6">
-                    <!-- Push to Talk Section -->
                     <div class="aviation-panel">
-                        <div class="aviation-panel-header">
-                            <i class="bi bi-mic"></i>
-                            Radio Communication
-                        </div>
-                        
+                        <div class="aviation-panel-header"><i class="bi bi-mic"></i>Radio Communication</div>
                         <div class="text-center mb-4">
                             <button class="btn push-to-talk @(isRecording ? "recording" : "btn-aviation-primary") btn-lg"
-                                    @onmousedown="StartRecording"
-                                    @onmouseup="StopRecording"
-                                    @ontouchstart="StartRecording"
-                                    @ontouchend="StopRecording"
+                                    @onmousedown="StartRecording" @onmouseup="StopRecording"
+                                    @ontouchstart="StartRecording" @ontouchend="StopRecording"
                                     disabled="@(isBlocked || isProcessingTurn)">
                                 <i class="bi bi-@(isRecording ? "mic-fill" : "mic") me-2"></i>
                                 @(isRecording ? "TRANSMITTING" : (isBlocked ? "BLOCKED" : "PUSH TO TALK"))
                             </button>
                         </div>
-
-                        <!-- Audio Level Meter -->
-                        <div class="audio-level-meter">
-                            <div class="audio-level-bar" style="width: @(audioLevel * 100)%"></div>
-                        </div>
+                        <div class="audio-level-meter"><div class="audio-level-bar" style="width: @(audioLevel * 100)%"></div></div>
                         <small class="text-muted">Audio Level: @((int)(audioLevel * 100))%</small>
-
-                        <!-- Block/Error Display -->
                         @if (isBlocked && !string.IsNullOrEmpty(blockReason))
                         {
                             <div class="retry-banner mt-3">
-                                <div class="retry-message">
-                                    <i class="bi bi-exclamation-triangle"></i>
-                                    <span>@blockReason</span>
-                                </div>
-                                <div class="retry-actions">
-                                    <button class="btn btn-sm btn-outline-light" @onclick="ClearBlock">
-                                        <i class="bi bi-arrow-clockwise me-1"></i>Retry
-                                    </button>
-                                </div>
+                                <div class="retry-message"><i class="bi bi-exclamation-triangle"></i><span class="ms-2">@blockReason</span></div>
+                                <div class="retry-actions"><button class="btn btn-sm btn-outline-light" @onclick="ClearBlock"><i class="bi bi-arrow-clockwise me-1"></i>Retry</button></div>
                             </div>
                         }
                     </div>
-
-                    <!-- Transcript Display -->
                     <div class="aviation-panel">
-                        <div class="aviation-panel-header">
-                            <i class="bi bi-chat-dots"></i>
-                            Live Transcript
-                        </div>
+                        <div class="aviation-panel-header"><i class="bi bi-chat-dots"></i>Live Transcript</div>
                         <div class="transcript-container">
                             @if (!string.IsNullOrEmpty(currentTranscript))
-                            {
-                                <div class="@(isPartialTranscript ? "transcript-partial" : "transcript-final")">
-                                    @currentTranscript
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="text-muted">Your communications will appear here...</div>
-                            }
+                            {<div class="@(isPartialTranscript ? "transcript-partial" : "transcript-final")">@currentTranscript</div>}
+                            else { <div class="text-muted">Your communications will appear here...</div> }
                         </div>
-                        @if (isPartialTranscript)
-                        {
-                            <small class="text-info">
-                                <i class="bi bi-typing me-1"></i>Processing speech...
-                            </small>
-                        }
+                        @if (isPartialTranscript){<small class="text-info"><i class="bi bi-typing me-1"></i>Processing speech...</small>}
                     </div>
                 </div>
 
-                <!-- Right Panel: ATC and Feedback -->
                 <div class="col-md-6">
-                    <!-- ATC Communications -->
                     <div class="aviation-panel">
-                        <div class="aviation-panel-header">
-                            <i class="bi bi-tower"></i>
-                            Air Traffic Control
-                        </div>
-                        
+                        <div class="aviation-panel-header"><i class="bi bi-tower"></i>Air Traffic Control</div>
                         @if (!string.IsNullOrEmpty(lastAtcTransmission))
                         {
                             <div class="atc-transmission p-3 mb-3">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
                                     <strong class="text-aviation-primary">Melbourne Tower:</strong>
-                                    <button class="btn btn-sm btn-outline-secondary" @onclick="PlayAtcAudio">
-                                        <i class="bi bi-volume-up"></i>
-                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="PlayAtcAudio"><i class="bi bi-volume-up"></i></button>
                                 </div>
                                 <p class="mb-0">@lastAtcTransmission</p>
                             </div>
                         }
-                        else
-                        {
-                            <div class="text-muted p-3">
-                                <i class="bi bi-headphones me-2"></i>
-                                Listening for ATC communications...
-                            </div>
-                        }
+                        else { <div class="text-muted p-3"><i class="bi bi-headphones me-2"></i>Listening for ATC communications...</div> }
                     </div>
-
-                    <!-- Instructor Feedback -->
                     <div class="aviation-panel">
-                        <div class="aviation-panel-header">
-                            <i class="bi bi-clipboard-check"></i>
-                            Instructor Feedback
-                        </div>
-
+                        <div class="aviation-panel-header"><i class="bi bi-clipboard-check"></i>Instructor Feedback</div>
                         @if (latestVerdict != null)
                         {
                             <div class="p-3">
                                 @if (!string.IsNullOrEmpty(latestVerdict.BlockReason))
-                                {
-                                    <div class="alert alert-warning py-2">
-                                        <i class="bi bi-shield-exclamation me-2"></i>
-                                        @latestVerdict.BlockReason
-                                    </div>
-                                }
-
+                                {<div class="alert alert-warning py-2"><i class="bi bi-shield-exclamation me-2"></i>@latestVerdict.BlockReason</div>}
                                 @if (latestVerdict.Critical?.Any() == true)
                                 {
-                                    <div class="mb-3">
-                                        <h6 class="text-danger">Critical Issues</h6>
-                                        <ul class="list-unstyled mb-0">
-                                            @foreach (var item in latestVerdict.Critical)
-                                            {
-                                                <li><i class="bi bi-x-octagon me-1 text-danger"></i>@item</li>
-                                            }
-                                        </ul>
-                                    </div>
+                                    <div class="mb-3"><h6 class="text-danger">Critical Issues</h6><ul class="list-unstyled mb-0">@foreach (var item in latestVerdict.Critical){<li><i class="bi bi-x-octagon me-1 text-danger"></i>@item</li>}</ul></div>
                                 }
-
                                 @if (latestVerdict.Improvements?.Any() == true)
                                 {
-                                    <div class="mb-3">
-                                        <h6 class="text-info">Suggested Improvements</h6>
-                                        <ul class="list-unstyled mb-0">
-                                            @foreach (var item in latestVerdict.Improvements)
-                                            {
-                                                <li><i class="bi bi-lightbulb me-1 text-info"></i>@item</li>
-                                            }
-                                        </ul>
-                                    </div>
+                                    <div class="mb-3"><h6 class="text-info">Suggested Improvements</h6><ul class="list-unstyled mb-0">@foreach (var item in latestVerdict.Improvements){<li><i class="bi bi-lightbulb me-1 text-info"></i>@item</li>}</ul></div>
                                 }
-
                                 @if (!string.IsNullOrEmpty(latestVerdict.ExemplarReadback))
-                                {
-                                    <div>
-                                        <h6 class="text-success">Exemplar Readback</h6>
-                                        <p class="mb-0">@latestVerdict.ExemplarReadback</p>
-                                    </div>
-                                }
-
-                                <div class="mt-3 text-muted small">
-                                    Score impact: <strong>@(latestVerdict.ScoreDelta >= 0 ? $"+{latestVerdict.ScoreDelta}" : latestVerdict.ScoreDelta.ToString())</strong>
-                                </div>
-
+                                {<div><h6 class="text-success">Exemplar Readback</h6><p class="mb-0">@latestVerdict.ExemplarReadback</p></div>}
+                                <div class="mt-3 text-muted small">Score impact: <strong>@(latestVerdict.ScoreDelta >= 0 ? $"+{latestVerdict.ScoreDelta}" : latestVerdict.ScoreDelta.ToString())</strong></div>
                                 @if (showBreakdown && latestVerdict.Components?.Any() == true)
                                 {
                                     <div class="mt-3">
                                         <h6 class="text-secondary mb-2">Component Breakdown <small class="text-muted">(Rubric @latestVerdict.RubricVersion)</small></h6>
                                         <div class="table-responsive small">
                                             <table class="table table-sm table-striped mb-0 align-middle">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Code</th>
-                                                        <th>Cat</th>
-                                                        <th>Sev</th>
-                                                        <th>Wgt</th>
-                                                        <th>Score</th>
-                                                        <th>Δ</th>
-                                                        <th>Detail</th>
-                                                    </tr>
-                                                </thead>
+                                                <thead><tr><th>Code</th><th>Cat</th><th>Sev</th><th>Wgt</th><th>Score</th><th>Δ</th><th>Detail</th></tr></thead>
                                                 <tbody>
-                                                    @foreach (var c in latestVerdict.Components.OrderByDescending(c => c.Delta))
-                                                    {
-                                                        var sevClass = c.Severity switch { "critical" => "text-danger fw-bold", "major" => "text-danger", "minor" => "text-warning", _ => "text-muted" };
-                                                        <tr>
-                                                            <td>@c.Code</td>
-                                                            <td>@c.Category[..Math.Min(3, c.Category.Length)]</td>
-                                                            <td class="@sevClass">@c.Severity</td>
-                                                            <td>@c.Weight?.ToString("0.##")</td>
-                                                            <td>@c.Score?.ToString("0.00")</td>
-                                                            <td class="@(c.Delta >= 0 ? "text-success" : "text-danger")">@((c.Delta >= 0 ? "+" : "") + c.Delta?.ToString("0.##"))</td>
-                                                            <td style="max-width:180px">@c.Detail</td>
-                                                        </tr>
-                                                    }
+                                                @foreach (var c in latestVerdict.Components.OrderByDescending(c => c.Delta))
+                                                {
+                                                    var sevClass = c.Severity switch { "critical" => "text-danger fw-bold", "major" => "text-danger", "minor" => "text-warning", _ => "text-muted" };
+                                                    <tr>
+                                                        <td>@c.Code</td><td>@c.Category[..Math.Min(3, c.Category.Length)]</td>
+                                                        <td class="@sevClass">@c.Severity</td>
+                                                        <td>@c.Weight?.ToString("0.##")</td>
+                                                        <td>@c.Score?.ToString("0.00")</td>
+                                                        <td class="@(c.Delta >= 0 ? "text-success" : "text-danger")">@((c.Delta >= 0 ? "+" : "") + c.Delta?.ToString("0.##"))</td>
+                                                        <td style="max-width:180px">@c.Detail</td>
+                                                    </tr>
+                                                }
                                                 </tbody>
                                             </table>
                                         </div>
                                         <div class="row g-2 mt-2 small">
-                                            @if (latestVerdict.PhraseAccuracy.HasValue)
-                                            {<div class="col"><strong>Phrase:</strong> @latestVerdict.PhraseAccuracy.Value.ToString("0.00")</div>}
-                                            @if (latestVerdict.Ordering.HasValue)
-                                            {<div class="col"><strong>Order:</strong> @latestVerdict.Ordering.Value.ToString("0.00")</div>}
-                                            @if (latestVerdict.Omissions.HasValue)
-                                            {<div class="col"><strong>Omit:</strong> @latestVerdict.Omissions.Value.ToString("0.00")</div>}
-                                            @if (latestVerdict.Safety.HasValue)
-                                            {<div class="col"><strong>Safety:</strong> @latestVerdict.Safety.Value.ToString("0.00")</div>}
-                                            @if (latestVerdict.SafetyFlag == true)
-                                            {<div class="col text-danger"><i class="bi bi-exclamation-octagon"></i> Safety Flag</div>}
+                                            @if (latestVerdict.PhraseAccuracy.HasValue){<div class="col"><strong>Phrase:</strong> @latestVerdict.PhraseAccuracy.Value.ToString("0.00")</div>}
+                                            @if (latestVerdict.Ordering.HasValue){<div class="col"><strong>Order:</strong> @latestVerdict.Ordering.Value.ToString("0.00")</div>}
+                                            @if (latestVerdict.Omissions.HasValue){<div class="col"><strong>Omit:</strong> @latestVerdict.Omissions.Value.ToString("0.00")</div>}
+                                            @if (latestVerdict.Safety.HasValue){<div class="col"><strong>Safety:</strong> @latestVerdict.Safety.Value.ToString("0.00")</div>}
+                                            @if (latestVerdict.SafetyFlag == true){<div class="col text-danger"><i class="bi bi-exclamation-octagon"></i> Safety Flag</div>}
                                         </div>
                                     </div>
                                 }
-
-                                <div class="mt-2">
-                                    <button class="btn btn-outline-secondary btn-sm" @onclick="ToggleBreakdown">
-                                        <i class="bi bi-diagram-3 me-1"></i>@(showBreakdown ? "Hide" : "Show") Breakdown
-                                    </button>
-                                </div>
+                                <div class="mt-2"><button class="btn btn-outline-secondary btn-sm" @onclick="ToggleBreakdown"><i class="bi bi-diagram-3 me-1"></i>@(showBreakdown ? "Hide" : "Show") Breakdown</button></div>
                             </div>
                         }
-                        else
-                        {
-                            <div class="text-muted p-3">
-                                <i class="bi bi-flag me-2"></i>
-                                Awaiting your first transmission...
-                            </div>
-                        }
+                        else { <div class="text-muted p-3"><i class="bi bi-flag me-2"></i>Awaiting your first transmission...</div> }
                     </div>
-
-                    <!-- Session Progress -->
-                    <div class="aviation-panel">
-                        <div class="aviation-panel-header">
-                            <i class="bi bi-list-check"></i>
-                            Session Progress
-                        </div>
-                        
+                    <div class="aviation-panel"><div class="aviation-panel-header"><i class="bi bi-list-check"></i>Session Progress</div>
                         @if (completedTurns.Any())
                         {
                             <div class="timeline">
                                 @foreach (var turn in completedTurns.TakeLast(5))
                                 {
                                     <div class="timeline-item">
-                                        <div class="timeline-marker">
-                                            <i class="bi bi-check"></i>
-                                        </div>
-                                        <div class="timeline-content">
-                                            <small class="text-muted">Turn @turn.Idx</small>
-                                            <p class="mb-1">@turn.UserTranscript</p>
-                                            <small class="text-success">Completed</small>
-                                        </div>
+                                        <div class="timeline-marker"><i class="bi bi-check"></i></div>
+                                        <div class="timeline-content"><small class="text-muted">Turn @turn.Idx</small><p class="mb-1">@turn.UserTranscript</p><small class="text-success">Completed</small></div>
                                     </div>
                                 }
                             </div>
                         }
-                        else
-                        {
-                            <div class="text-muted p-3">
-                                <i class="bi bi-clock me-2"></i>
-                                Session starting...
-                            </div>
-                        }
+                        else { <div class="text-muted p-3"><i class="bi bi-clock me-2"></i>Session starting...</div> }
                     </div>
-
-                    <!-- Session Controls -->
                     <div class="aviation-panel">
-                        <div class="aviation-panel-header">
-                            <i class="bi bi-gear"></i>
-                            Session Controls
-                        </div>
+                        <div class="aviation-panel-header"><i class="bi bi-gear"></i>Session Controls</div>
                         <div class="d-grid gap-2">
-                            <button class="btn btn-aviation-danger" @onclick="EndSession">
-                                <i class="bi bi-stop-fill me-2"></i>End Session
-                            </button>
-                            <small class="text-muted text-center">
-                                Use this to end your training session and view your debrief.
-                            </small>
+                            <button class="btn btn-aviation-danger" @onclick="EndSession"><i class="bi bi-stop-fill me-2"></i>End Session</button>
+                            <small class="text-muted text-center">Use this to end your training session and view your debrief.</small>
                         </div>
                     </div>
                 </div>
@@ -453,569 +315,140 @@
     }
 </div>
 
-<!-- Audio element for TTS playback -->
 <audio id="tts-audio" preload="none"></audio>
 
 @code {
     [Parameter] public int ScenarioId { get; set; }
-    
     private Scenario? scenario;
     private Session? currentSession;
     private List<Turn> completedTurns = new();
-    
+    private PilotProfile? pilotProfile;
+    private List<string> learningObjectives = new();
+
     private HubConnection? hubConnection;
-    private bool isRecording = false;
-    private bool isBlocked = false;
-    private string? blockReason;
-    private string currentTranscript = "";
-    private bool isPartialTranscript = false;
-    private string? lastAtcTransmission;
-    private string? lastTtsAudioPath;
-    private int totalScore = 0;
-    private int scoreDelta = 0;
-    private int pendingScoreDelta = 0;
-    private double audioLevel = 0;
-    private bool? microphoneTestResult = null;
-    private bool microphoneTestInProgress = false;
-    private bool speakerTestInProgress = false;
-    private bool speakerTestRan = false;
-    private bool speakerTestSuccess = false;
-    private string? microphoneTestMessage;
-    private string? speakerTestMessage;
-    private InstructorVerdictDto? latestVerdict;
-    private bool isProcessingTurn = false;
-    private bool isStartingSession = false;
-    private DotNetObjectReference<LiveSim>? dotNetRef;
-    private bool showBreakdown = false;
-    
+    private bool isRecording; private bool isBlocked; private string? blockReason;
+    private string currentTranscript = string.Empty; private bool isPartialTranscript;
+    private string? lastAtcTransmission; private string? lastTtsAudioPath;
+    private int totalScore; private int scoreDelta; private int pendingScoreDelta;
+    private double audioLevel; private bool? microphoneTestResult; private bool microphoneTestInProgress;
+    private bool speakerTestInProgress; private bool speakerTestRan; private bool speakerTestSuccess;
+    private string? microphoneTestMessage; private string? speakerTestMessage;
+    private InstructorVerdictDto? latestVerdict; private bool isProcessingTurn; private bool isStartingSession;
+    private DotNetObjectReference<LiveSim>? dotNetRef; private bool showBreakdown;
+
     protected override async Task OnInitializedAsync()
     {
-        // Load scenario
-        scenario = await DbContext.Scenarios
-            .Include(s => s.Airport)
-            .FirstOrDefaultAsync(s => s.Id == ScenarioId);
-            
-        if (scenario == null)
+        scenario = await DbContext.Scenarios.Include(s => s.Airport)!.ThenInclude(a => a!.Runways).FirstOrDefaultAsync(s => s.Id == ScenarioId);
+        if (scenario == null){ Navigation.NavigateTo("/scenarios"); return; }
+        if (!string.IsNullOrWhiteSpace(scenario.LearningObjectives))
         {
-            Navigation.NavigateTo("/scenarios");
-            return;
+            try { var arr = JsonDocument.Parse(scenario.LearningObjectives).RootElement; if (arr.ValueKind == JsonValueKind.Array) learningObjectives = arr.EnumerateArray().Select(e => e.GetString()).Where(s => !string.IsNullOrWhiteSpace(s))!.ToList(); } catch { }
         }
-        
-        // Initialize SignalR connection
-        hubConnection = new HubConnectionBuilder()
-            .WithUrl(Navigation.ToAbsoluteUri("/hubs/live"))
-            .Build();
-            
-        // Set up SignalR event handlers
-        hubConnection.On<string, double?>("partialTranscript", (transcript, confidence) =>
-        {
-            currentTranscript = transcript;
-            isPartialTranscript = confidence < 0.8;
-            InvokeAsync(StateHasChanged);
-        });
-        
-        hubConnection.On<InstructorVerdictDto>("instructorVerdict", (verdict) =>
-        {
-            latestVerdict = verdict;
-            pendingScoreDelta = verdict?.ScoreDelta ?? 0;
-            isPartialTranscript = false;
-
-            if (!string.IsNullOrWhiteSpace(verdict?.BlockReason) && verdict?.Critical?.Any() == true)
-            {
-                blockReason = verdict.BlockReason;
-                isBlocked = true;
-            }
-            else
-            {
-                blockReason = null;
-                isBlocked = false;
-            }
-
-            InvokeAsync(StateHasChanged);
-        });
-        
-        hubConnection.On<AtcReplyDto>("atcTransmission", (transmission) =>
-        {
-            lastAtcTransmission = transmission?.Transmission;
-            InvokeAsync(StateHasChanged);
-        });
-        
-        hubConnection.On<string>("ttsReady", (audioPath) =>
-        {
-            lastTtsAudioPath = audioPath;
-            InvokeAsync(StateHasChanged);
-        });
-        
-        hubConnection.On<int>("scoreTick", (newTotal) =>
-        {
-            var previous = totalScore;
-            totalScore = newTotal;
-
-            var computedDelta = newTotal - previous;
-            scoreDelta = computedDelta != 0 ? computedDelta : pendingScoreDelta;
-            pendingScoreDelta = 0;
-
-            InvokeAsync(StateHasChanged);
-
-            if (scoreDelta != 0)
-            {
-                Task.Delay(3000).ContinueWith(_ =>
-                {
-                    scoreDelta = 0;
-                    InvokeAsync(StateHasChanged);
-                });
-            }
-        });
-        
+        pilotProfile = await DbContext.PilotProfiles.Include(p => p.Aircraft).OrderByDescending(p => p.IsLive).FirstOrDefaultAsync();
+        hubConnection = new HubConnectionBuilder().WithUrl(Navigation.ToAbsoluteUri("/hubs/live")).Build();
+        hubConnection.On<string, double?>("partialTranscript", (t, c) => { currentTranscript = t; isPartialTranscript = c < 0.8; InvokeAsync(StateHasChanged); });
+        hubConnection.On<InstructorVerdictDto>("instructorVerdict", verdict => { latestVerdict = verdict; pendingScoreDelta = verdict?.ScoreDelta ?? 0; isPartialTranscript = false; if (!string.IsNullOrWhiteSpace(verdict?.BlockReason) && verdict?.Critical?.Any() == true){ blockReason = verdict.BlockReason; isBlocked = true; } else { blockReason = null; isBlocked = false; } InvokeAsync(StateHasChanged); });
+        hubConnection.On<AtcReplyDto>("atcTransmission", tx => { lastAtcTransmission = tx?.Transmission; InvokeAsync(StateHasChanged); });
+        hubConnection.On<string>("ttsReady", path => { lastTtsAudioPath = path; InvokeAsync(StateHasChanged); });
+        hubConnection.On<int>("scoreTick", newTotal => { var prev = totalScore; totalScore = newTotal; var computed = newTotal - prev; scoreDelta = computed != 0 ? computed : pendingScoreDelta; pendingScoreDelta = 0; InvokeAsync(StateHasChanged); if (scoreDelta != 0) Task.Delay(3000).ContinueWith(_ => { scoreDelta = 0; InvokeAsync(StateHasChanged); }); });
         await hubConnection.StartAsync();
     }
-    
+
     private async Task StartSession()
     {
-        if (scenario == null) return;
-        
+        if (scenario == null) return; isStartingSession = true; StateHasChanged();
         try
         {
-            isStartingSession = true;
-            StateHasChanged();
-
-            var sessionRequest = new
-            {
-                ScenarioId = scenario.Id,
-                Difficulty = scenario.Difficulty ?? "Basic"
-            };
-            
-            var response = await Http.PostAsJsonAsync("/api/session", sessionRequest);
+            var response = await Http.PostAsJsonAsync("/api/session", new { ScenarioId = scenario.Id, Difficulty = scenario.Difficulty ?? "Basic" });
             if (response.IsSuccessStatusCode)
             {
                 var sessionId = await response.Content.ReadFromJsonAsync<int>();
-                currentSession = new Session 
-                { 
-                    Id = sessionId,
-                    ScenarioId = scenario.Id,
-                    StartedUtc = DateTime.UtcNow.ToString("O"),
-                    Difficulty = scenario.Difficulty ?? "Basic"
-                };
-                
-                // Join the SignalR group for this session
-                if (hubConnection != null && hubConnection.State == HubConnectionState.Connected)
-                {
-                    await hubConnection.InvokeAsync("JoinSession", sessionId.ToString());
-                }
-                
-                // Set up audio callbacks
+                currentSession = new Session { Id = sessionId, ScenarioId = scenario.Id, StartedUtc = DateTime.UtcNow.ToString("O"), Difficulty = scenario.Difficulty ?? "Basic" };
+                if (hubConnection?.State == HubConnectionState.Connected) await hubConnection.InvokeAsync("JoinSession", sessionId.ToString());
                 await SetupAudioCallbacks();
-                completedTurns.Clear();
-                latestVerdict = null;
-                lastAtcTransmission = null;
-                currentTranscript = string.Empty;
-                isPartialTranscript = false;
-                isBlocked = false;
-                blockReason = null;
-                totalScore = 0;
-                scoreDelta = 0;
-                pendingScoreDelta = 0;
-                isProcessingTurn = false;
-                
-                StateHasChanged();
+                ResetSessionState();
             }
-            else
-            {
-                var details = await response.Content.ReadAsStringAsync();
-                blockReason = $"Unable to start session ({response.StatusCode}).";
-                if (!string.IsNullOrWhiteSpace(details))
-                {
-                    Console.WriteLine($"Start session failed: {details}");
-                }
-                isBlocked = true;
-                StateHasChanged();
-            }
+            else { blockReason = $"Unable to start session ({response.StatusCode})."; isBlocked = true; }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error starting session: {ex.Message}");
-            // Handle error - create a fallback session for testing
-            currentSession = new Session 
-            { 
-                Id = Random.Shared.Next(1000, 9999),
-                ScenarioId = scenario.Id,
-                StartedUtc = DateTime.UtcNow.ToString("O"),
-                Difficulty = scenario.Difficulty ?? "Basic"
-            };
-            
-            // Still set up audio callbacks for testing
-            await SetupAudioCallbacks();
-            completedTurns.Clear();
-            latestVerdict = null;
-            lastAtcTransmission = null;
-            currentTranscript = string.Empty;
-            isPartialTranscript = false;
-            isBlocked = false;
-            blockReason = null;
-            totalScore = 0;
-            scoreDelta = 0;
-            pendingScoreDelta = 0;
-            isProcessingTurn = false;
-            StateHasChanged();
+            currentSession = new Session { Id = Random.Shared.Next(1000, 9999), ScenarioId = scenario.Id, StartedUtc = DateTime.UtcNow.ToString("O"), Difficulty = scenario.Difficulty ?? "Basic" };
+            await SetupAudioCallbacks(); ResetSessionState();
         }
-        finally
-        {
-            if (isStartingSession)
-            {
-                isStartingSession = false;
-                StateHasChanged();
-            }
-        }
+        finally { isStartingSession = false; StateHasChanged(); }
     }
-    
+
+    private void ResetSessionState()
+    {
+        completedTurns.Clear(); latestVerdict = null; lastAtcTransmission = null; currentTranscript = string.Empty; isPartialTranscript = false; isBlocked = false; blockReason = null; totalScore = 0; scoreDelta = 0; pendingScoreDelta = 0; isProcessingTurn = false; audioLevel = 0;
+    }
+
     private async Task StartRecording()
-    {
-        if (isBlocked || isProcessingTurn) return;
-        
-        isRecording = true;
-        try
-        {
-            await JSRuntime.InvokeVoidAsync("startAudioCapture");
-        }
-        catch (Exception ex)
-        {
-            // Handle JS interop error
-            Console.WriteLine($"Error starting recording: {ex.Message}");
-        }
-    }
-    
+    { if (isBlocked || isProcessingTurn) return; isRecording = true; try { await JSRuntime.InvokeVoidAsync("startAudioCapture"); } catch (Exception ex) { Console.WriteLine($"Error starting recording: {ex.Message}"); } }
+
     private async Task StopRecording()
-    {
-        if (!isRecording) return;
-        
-        isRecording = false;
-        isProcessingTurn = true;
-        try
-        {
-            await JSRuntime.InvokeVoidAsync("stopAudioCapture");
-        }
-        catch (Exception ex)
-        {
-            // Handle JS interop error
-            Console.WriteLine($"Error stopping recording: {ex.Message}");
-            isProcessingTurn = false;
-        }
-    }
-    
-    private void ClearBlock()
-    {
-        isBlocked = false;
-        blockReason = null;
-        isProcessingTurn = false;
-    }
-    
+    { if (!isRecording) return; isRecording = false; isProcessingTurn = true; try { await JSRuntime.InvokeVoidAsync("stopAudioCapture"); } catch (Exception ex) { Console.WriteLine($"Error stopping recording: {ex.Message}"); isProcessingTurn = false; } }
+
+    private void ClearBlock() { isBlocked = false; blockReason = null; isProcessingTurn = false; }
+
     private async Task PlayAtcAudio()
-    {
-        if (!string.IsNullOrEmpty(lastTtsAudioPath))
-        {
-            try
-            {
-                await JSRuntime.InvokeVoidAsync("playAudio", "tts-audio", lastTtsAudioPath);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error playing audio: {ex.Message}");
-            }
-        }
-    }
-    
+    { if (!string.IsNullOrEmpty(lastTtsAudioPath)) { try { await JSRuntime.InvokeVoidAsync("playAudio", "tts-audio", lastTtsAudioPath); } catch (Exception ex) { Console.WriteLine($"Error playing audio: {ex.Message}"); } } }
+
     private async Task EndSession()
-    {
-        if (currentSession != null)
-        {
-            try
-            {
-                await Http.PostAsJsonAsync($"/api/session/{currentSession.Id}/end", new { });
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error ending session: {ex.Message}");
-            }
-        }
-        
-        Navigation.NavigateTo($"/debrief/{currentSession?.Id}");
-    }
-    
+    { if (currentSession != null) { try { await Http.PostAsJsonAsync($"/api/session/{currentSession.Id}/end", new { }); } catch (Exception ex) { Console.WriteLine($"Error ending session: {ex.Message}"); } } Navigation.NavigateTo($"/debrief/{currentSession?.Id}"); }
+
     private async Task TestMicrophone()
-    {
-        microphoneTestInProgress = true;
-        microphoneTestMessage = null;
-        microphoneTestResult = null;
-        StateHasChanged();
-
-        try
-        {
-            var result = await JSRuntime.InvokeAsync<DeviceTestResult>("trainmeAudio.testMicrophone");
-            microphoneTestResult = result.Success;
-            microphoneTestMessage = result.Message;
-        }
-        catch (Exception ex)
-        {
-            microphoneTestResult = false;
-            microphoneTestMessage = "Microphone test failed. Please verify browser permissions.";
-            Console.WriteLine($"Microphone test failed: {ex.Message}");
-        }
-        finally
-        {
-            microphoneTestInProgress = false;
-        }
-
-        StateHasChanged();
-    }
+    { microphoneTestInProgress = true; microphoneTestMessage = null; microphoneTestResult = null; StateHasChanged(); try { var r = await JSRuntime.InvokeAsync<DeviceTestResult>("trainmeAudio.testMicrophone"); microphoneTestResult = r.Success; microphoneTestMessage = r.Message; } catch { microphoneTestResult = false; microphoneTestMessage = "Microphone test failed. Check permissions."; } finally { microphoneTestInProgress = false; StateHasChanged(); } }
 
     private async Task TestSpeakers()
-    {
-        speakerTestRan = true;
-        speakerTestInProgress = true;
-        speakerTestMessage = null;
-        speakerTestSuccess = false;
-        StateHasChanged();
-        try
-        {
-            var result = await JSRuntime.InvokeAsync<DeviceTestResult>("trainmeAudio.testSpeakers");
-            speakerTestSuccess = result.Success;
-            speakerTestMessage = result.Message;
-        }
-        catch (Exception ex)
-        {
-            speakerTestSuccess = false;
-            speakerTestMessage = "Speaker playback failed. Check your output device.";
-            Console.WriteLine($"Speaker test failed: {ex.Message}");
-        }
-        finally
-        {
-            speakerTestInProgress = false;
-        }
-
-        StateHasChanged();
-    }
+    { speakerTestRan = true; speakerTestInProgress = true; speakerTestMessage = null; speakerTestSuccess = false; StateHasChanged(); try { var r = await JSRuntime.InvokeAsync<DeviceTestResult>("trainmeAudio.testSpeakers"); speakerTestSuccess = r.Success; speakerTestMessage = r.Message; } catch { speakerTestSuccess = false; speakerTestMessage = "Speaker playback failed."; } finally { speakerTestInProgress = false; StateHasChanged(); } }
 
     private async Task SetupAudioCallbacks()
     {
-        // Set the current session ID in JavaScript for audio processing
-        if (currentSession != null)
-        {
-            await JSRuntime.InvokeVoidAsync("eval", $"window.currentSessionId = '{currentSession.Id}';");
-        }
-        
+        if (currentSession != null) await JSRuntime.InvokeVoidAsync("liveSim.setSessionId", currentSession.Id);
         dotNetRef ??= DotNetObjectReference.Create(this);
-
-        // Set up JavaScript callbacks for audio level updates and turn processing
-        await JSRuntime.InvokeVoidAsync("eval", @"
-            window.blazorAudioLevelCallback = (level) => {
-                if (window.blazorInstance) {
-                    window.blazorInstance.invokeMethodAsync('UpdateAudioLevelInstance', level);
-                }
-            };
-
-            window.blazorTurnResultCallback = (turnResult) => {
-                if (window.blazorInstance) {
-                    window.blazorInstance.invokeMethodAsync('HandleTurnResultInstance', JSON.stringify(turnResult));
-                }
-            };
-
-            window.blazorSttCallback = (text, confidence) => {
-                if (window.blazorInstance) {
-                    window.blazorInstance.invokeMethodAsync('ProcessSttResultInstance', text, confidence);
-                }
-            };
-
-            window.blazorSttErrorCallback = (error) => {
-                if (window.blazorInstance) {
-                    window.blazorInstance.invokeMethodAsync('HandleSttErrorInstance', error);
-                }
-            };
-        ");
-        
-        // Store this component instance for callbacks
-        await JSRuntime.InvokeVoidAsync("eval", "window.blazorInstance = DotNet.createJSObjectReference(arguments[0]);", dotNetRef);
+        await JSRuntime.InvokeVoidAsync("liveSim.register", dotNetRef);
+        await JSRuntime.InvokeVoidAsync("liveSim.initCallbacks");
     }
 
-    [JSInvokable]
-    public void UpdateAudioLevelInstance(double level)
-    {
-        audioLevel = level;
-        InvokeAsync(StateHasChanged);
-    }
+    [JSInvokable] public void UpdateAudioLevelInstance(double level) { audioLevel = level; InvokeAsync(StateHasChanged); }
 
-    [JSInvokable]
-    public async Task HandleTurnResultInstance(string turnResultJson)
+    [JSInvokable] public async Task HandleTurnResultInstance(string json)
     {
-        if (string.IsNullOrWhiteSpace(turnResultJson))
-        {
-            return;
-        }
-
+        if (string.IsNullOrWhiteSpace(json)) return;
         try
         {
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var turnResult = JsonSerializer.Deserialize<TurnResultDto>(turnResultJson, options);
-            if (turnResult == null)
-            {
-                return;
-            }
-
-            currentTranscript = turnResult.Transcript ?? string.Empty;
-            isPartialTranscript = false;
-
+            var turnResult = JsonSerializer.Deserialize<TurnResultDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (turnResult == null) return;
+            currentTranscript = turnResult.Transcript ?? string.Empty; isPartialTranscript = false;
             if (turnResult.Verdict != null)
             {
-                latestVerdict = turnResult.Verdict;
-                pendingScoreDelta = turnResult.Verdict.ScoreDelta;
-                scoreDelta = pendingScoreDelta;
-
-                if (!string.IsNullOrWhiteSpace(turnResult.Verdict.BlockReason) && turnResult.Verdict.Critical?.Any() == true)
-                {
-                    blockReason = turnResult.Verdict.BlockReason;
-                    isBlocked = true;
-                }
-                else
-                {
-                    blockReason = null;
-                    isBlocked = false;
-                }
+                latestVerdict = turnResult.Verdict; pendingScoreDelta = turnResult.Verdict.ScoreDelta; scoreDelta = pendingScoreDelta;
+                if (!string.IsNullOrWhiteSpace(turnResult.Verdict.BlockReason) && turnResult.Verdict.Critical?.Any() == true){ blockReason = turnResult.Verdict.BlockReason; isBlocked = true; } else { blockReason = null; isBlocked = false; }
             }
-
-            if (turnResult.AtcResponse != null)
-            {
-                lastAtcTransmission = turnResult.AtcResponse.Transmission;
-            }
-
-            if (!string.IsNullOrEmpty(turnResult.TtsAudioPath))
-            {
-                lastTtsAudioPath = turnResult.TtsAudioPath;
-            }
-
+            if (turnResult.AtcResponse != null) lastAtcTransmission = turnResult.AtcResponse.Transmission;
+            if (!string.IsNullOrEmpty(turnResult.TtsAudioPath)) lastTtsAudioPath = turnResult.TtsAudioPath;
             isProcessingTurn = false;
-
-            completedTurns.Add(new Turn
-            {
-                Idx = completedTurns.Count + 1,
-                UserTranscript = currentTranscript
-            });
-
-            if (scoreDelta != 0)
-            {
-                _ = Task.Delay(3000).ContinueWith(_ =>
-                {
-                    scoreDelta = 0;
-                    InvokeAsync(StateHasChanged);
-                });
-            }
-
+            completedTurns.Add(new Turn { Idx = completedTurns.Count + 1, UserTranscript = currentTranscript });
+            if (scoreDelta != 0) _ = Task.Delay(3000).ContinueWith(_ => { scoreDelta = 0; InvokeAsync(StateHasChanged); });
             await InvokeAsync(StateHasChanged);
         }
-        catch (Exception ex)
-        {
-            isProcessingTurn = false;
-            Console.WriteLine($"Error handling turn result: {ex.Message}");
-        }
+        catch (Exception ex){ isProcessingTurn = false; Console.WriteLine($"Error handling turn result: {ex.Message}"); }
     }
 
-    [JSInvokable]  
-    public void ProcessSttResultInstance(string text, double confidence)
-    {
-        currentTranscript = text;
-        isPartialTranscript = confidence < 0.8;
-        InvokeAsync(StateHasChanged);
-    }
-
-    [JSInvokable]
-    public void HandleSttErrorInstance(string error)
-    {
-        blockReason = $"Speech recognition error: {error}";
-        isBlocked = true;
-        isProcessingTurn = false;
-        InvokeAsync(StateHasChanged);
-    }
-
-    [JSInvokable]
-    public static void UpdateAudioLevel(double level)
-    {
-        // Legacy static method - kept for backward compatibility
-        Console.WriteLine($"Audio Level: {level * 100:F0}%");
-    }
-
-    [JSInvokable]  
-    public static void ProcessSttResult(string text, double confidence)
-    {
-        // Legacy static method - kept for backward compatibility
-        Console.WriteLine($"STT Result: {text} (confidence: {confidence})");
-    }
-
-    [JSInvokable]
-    public static void HandleSttError(string error)
-    {
-        // Legacy static method - kept for backward compatibility
-        Console.WriteLine($"STT Error: {error}");
-    }
-    
-    private class InstructorVerdictDto
-    {
-        public List<string>? Critical { get; set; }
-        public List<string>? Improvements { get; set; }
-        public string? ExemplarReadback { get; set; }
-        public double Normalized { get; set; }
-        public int ScoreDelta { get; set; }
-        public string? BlockReason { get; set; }
-        public List<ComponentScoreDto>? Components { get; set; }
-        public double? PhraseAccuracy { get; set; }
-        public double? Ordering { get; set; }
-        public double? Omissions { get; set; }
-        public double? Safety { get; set; }
-        public bool? SafetyFlag { get; set; }
-        public string? RubricVersion { get; set; }
-    }
-
-    private class ComponentScoreDto
-    {
-        public string Code { get; set; } = string.Empty;
-        public string Category { get; set; } = string.Empty;
-        public string Severity { get; set; } = string.Empty;
-        public double? Weight { get; set; }
-        public double? Score { get; set; }
-        public double? Delta { get; set; }
-        public string? Detail { get; set; }
-    }
-
-    private class AtcReplyDto
-    {
-        public string? Transmission { get; set; }
-        public List<string>? ExpectedReadback { get; set; }
-        public JsonElement? NextState { get; set; }
-        public bool? HoldShort { get; set; }
-        public string? TtsTone { get; set; }
-    }
+    [JSInvokable] public void ProcessSttResultInstance(string text, double confidence){ currentTranscript = text; isPartialTranscript = confidence < 0.8; InvokeAsync(StateHasChanged); }
+    [JSInvokable] public void HandleSttErrorInstance(string error){ blockReason = $"Speech recognition error: {error}"; isBlocked = true; isProcessingTurn = false; InvokeAsync(StateHasChanged); }
 
     private void ToggleBreakdown() => showBreakdown = !showBreakdown;
+    private void GoBack() => Navigation.NavigateTo("/scenarios");
 
-    private class TurnResultDto
-    {
-        public string? Transcript { get; set; }
-        public InstructorVerdictDto? Verdict { get; set; }
-        public AtcReplyDto? AtcResponse { get; set; }
-        public string? TtsAudioPath { get; set; }
-    }
+    public async ValueTask DisposeAsync(){ if (hubConnection is not null) await hubConnection.DisposeAsync(); dotNetRef?.Dispose(); }
 
+    // DTOs
+    private class InstructorVerdictDto { public List<string>? Critical { get; set; } public List<string>? Improvements { get; set; } public string? ExemplarReadback { get; set; } public double Normalized { get; set; } public int ScoreDelta { get; set; } public string? BlockReason { get; set; } public List<ComponentScoreDto>? Components { get; set; } public double? PhraseAccuracy { get; set; } public double? Ordering { get; set; } public double? Omissions { get; set; } public double? Safety { get; set; } public bool? SafetyFlag { get; set; } public string? RubricVersion { get; set; } }
+    private class ComponentScoreDto { public string Code { get; set; } = string.Empty; public string Category { get; set; } = string.Empty; public string Severity { get; set; } = string.Empty; public double? Weight { get; set; } public double? Score { get; set; } public double? Delta { get; set; } public string? Detail { get; set; } }
+    private class AtcReplyDto { public string? Transmission { get; set; } public List<string>? ExpectedReadback { get; set; } public JsonElement? NextState { get; set; } public bool? HoldShort { get; set; } public string? TtsTone { get; set; } }
+    private class TurnResultDto { public string? Transcript { get; set; } public InstructorVerdictDto? Verdict { get; set; } public AtcReplyDto? AtcResponse { get; set; } public string? TtsAudioPath { get; set; } }
     private record DeviceTestResult(bool Success, string Message);
-
-    private void GoBack()
-    {
-        Navigation.NavigateTo("/scenarios");
-    }
-    
-    public async ValueTask DisposeAsync()
-    {
-        if (hubConnection is not null)
-        {
-            await hubConnection.DisposeAsync();
-        }
-
-        dotNetRef?.Dispose();
-    }
 }

@@ -6,6 +6,7 @@ using PilotSim.Server.Components;
 using PilotSim.Server.Hubs;
 using PilotSim.Server.Services;
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Components; // Added for NavigationManager
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,8 +17,14 @@ builder.Services.AddRazorComponents()
 // Add SignalR
 builder.Services.AddSignalR();
 
-// Add HttpClient for Blazor components
+// Add HttpClient for Blazor components (factory)
 builder.Services.AddHttpClient();
+// Provide a scoped HttpClient with a BaseAddress so relative URLs work in components
+builder.Services.AddScoped(sp =>
+{
+    var nav = sp.GetRequiredService<NavigationManager>();
+    return new HttpClient { BaseAddress = new Uri(nav.BaseUri) };
+});
 
 // Add Memory Caching
 builder.Services.AddMemoryCache();
@@ -41,26 +48,12 @@ else
 builder.Services.AddDbContext<SimDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("SimDb")));
 
-// Add OpenAI client
-var openAiApiKey = builder.Configuration["OPENAI_API_KEY"] ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY");
-if (!string.IsNullOrEmpty(openAiApiKey))
-{
-    builder.Services.AddSingleton(new OpenAIClient(openAiApiKey));
-    
-    // Add OpenAI service implementations
-    builder.Services.AddSingleton<ISttService, OpenAiSttService>();
-    builder.Services.AddScoped<IInstructorService, OpenAiInstructorService>();
-    builder.Services.AddScoped<IAtcService, OpenAiAtcService>();
-    builder.Services.AddSingleton<ITtsService, OpenAiTtsService>();
-}
-else
-{
-    // Fallback to stub implementations if no API key
-    builder.Services.AddSingleton<ISttService, StubSttService>();
-    builder.Services.AddScoped<IInstructorService, StubInstructorService>();
-    builder.Services.AddScoped<IAtcService, StubAtcService>();
-    builder.Services.AddSingleton<ITtsService, StubTtsService>();
-}
+builder.Services.AddSingleton(new OpenAIClient(builder.Configuration["OPENAI_API_KEY"]));
+// Register OpenAI-backed services
+builder.Services.AddSingleton<ISttService, OpenAiSttService>();
+builder.Services.AddScoped<IInstructorService, OpenAiInstructorService>();
+builder.Services.AddScoped<IAtcService, OpenAiAtcService>();
+builder.Services.AddSingleton<ITtsService, OpenAiTtsService>();
 
 // Add API controllers
 builder.Services.AddControllers();
@@ -99,6 +92,9 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Serve static files (audio, user uploads, etc.)
+app.UseStaticFiles();
 
 app.UseAntiforgery();
 

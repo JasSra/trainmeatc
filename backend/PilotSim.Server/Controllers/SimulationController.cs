@@ -42,6 +42,21 @@ public class SimulationController : ControllerBase
     public record ProcessTurnRequest(int SessionId, IFormFile Audio, string? PartialTranscript = null);
     public record TurnResult(string Transcript, InstructorVerdict Verdict, AtcReply AtcResponse, string? TtsAudioPath);
 
+    // Map flexible difficulty strings coming from scenarios/UI to internal enum
+    private static Difficulty MapDifficulty(string? value)
+        => (value ?? "Basic").Trim().ToLowerInvariant() switch
+        {
+            "basic" => Difficulty.Basic,
+            "intermediate" => Difficulty.Medium,
+            "medium" => Difficulty.Medium,
+            "adv" => Difficulty.Advanced,
+            "advanced" => Difficulty.Advanced,
+            // Future higher tiers collapse to Advanced until enum expanded
+            "expert" => Difficulty.Advanced,
+            "master" => Difficulty.Advanced,
+            _ => Difficulty.Basic
+        };
+
     [HttpPost("turn")]
     public async Task<ActionResult<TurnResult>> ProcessTurnAsync([FromForm] ProcessTurnRequest request, CancellationToken cancellationToken = default)
     {
@@ -97,7 +112,7 @@ public class SimulationController : ControllerBase
 
             // Get current simulation state
             var currentState = GetCurrentState(session);
-            var difficulty = Enum.Parse<Difficulty>(session.Difficulty ?? "Basic");
+            var difficulty = MapDifficulty(session.Difficulty);
 
             // Instructor: Score the transmission
             InstructorVerdict verdict;

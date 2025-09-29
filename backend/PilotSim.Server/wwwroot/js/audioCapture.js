@@ -9,6 +9,37 @@ let dataArray = null;
 let animationId = null;
 
 window.trainmeAudio = window.trainmeAudio || {};
+window.liveSim = window.liveSim || {}; // namespace expected by Blazor component
+
+// Support legacy registerBlazorInstance call if some code still invokes it
+window.registerBlazorInstance = function(instance) {
+    // Keep for backward compatibility; new code uses liveSim.register
+    window.liveSim._blazorInstance = instance;
+};
+
+// liveSim helpers expected by LiveSim.razor
+window.liveSim.setSessionId = function(id) {
+    window.currentSessionId = id;
+};
+
+window.liveSim.register = function(dotNetRef) {
+    window.liveSim._dotNet = dotNetRef;
+    // Map callback wrappers
+    window.blazorAudioLevelCallback = level => {
+        try { dotNetRef.invokeMethodAsync('UpdateAudioLevelInstance', level); } catch (e) { console.warn('Audio level cb failed', e); }
+    };
+    window.blazorTurnResultCallback = async result => {
+        try { await dotNetRef.invokeMethodAsync('HandleTurnResultInstance', JSON.stringify(result)); } catch (e) { console.warn('Turn result cb failed', e); }
+    };
+    window.blazorSttErrorCallback = async msg => {
+        try { await dotNetRef.invokeMethodAsync('HandleSttErrorInstance', msg); } catch (e) { console.warn('STT error cb failed', e); }
+    };
+};
+
+window.liveSim.initCallbacks = function() {
+    // nothing additional yet; kept for symmetry and future expansion
+    console.log('liveSim callbacks initialized');
+};
 
 // Initialize audio capture
 window.startAudioCapture = async function() {
