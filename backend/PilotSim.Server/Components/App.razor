@@ -9,8 +9,61 @@
     <link rel="stylesheet" href="@Assets["app.css"]" />
     <link rel="stylesheet" href="@Assets["PilotSim.Server.styles.css"]" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-KfkfwYDsLkIlwQp6LFnl8zNdLGxu9YAA1QvwINks4PhcElQSvqcyVLLD9aMhXd13uQjoXtEKNosOWaZqXgel0g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <ImportMap />
     <link rel="icon" type="image/png" href="favicon.png" />
+    <script>
+        (function () {
+            var THEME_KEY = 'theme';
+
+            function normalize(theme) {
+                return theme === 'dark' ? 'dark' : 'light';
+            }
+
+            function getStoredTheme() {
+                try {
+                    return localStorage.getItem(THEME_KEY);
+                } catch (error) {
+                    return null;
+                }
+            }
+
+            function getPreferredTheme() {
+                var stored = getStoredTheme();
+                if (stored) {
+                    return normalize(stored);
+                }
+
+                if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    return 'dark';
+                }
+
+                return 'light';
+            }
+
+            function applyEarly(theme) {
+                var normalized = normalize(theme);
+                var isDark = normalized === 'dark';
+                var root = document.documentElement;
+                var body = document.body;
+
+                if (root) {
+                    root.classList.toggle('dark-theme', isDark);
+                    root.setAttribute('data-theme', normalized);
+                }
+
+                if (body) {
+                    body.classList.toggle('dark-theme', isDark);
+                    body.setAttribute('data-theme', normalized);
+                }
+
+                document.documentElement.dataset.initialTheme = normalized;
+                return normalized;
+            }
+
+            applyEarly(getPreferredTheme());
+        })();
+    </script>
     <HeadOutlet />
 </head>
 

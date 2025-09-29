@@ -52,7 +52,7 @@
 }
 
 /* Dark Theme Variables - Aviation Night Mode */
-.dark-theme {
+:root.dark-theme {
     /* Aviation Night Colors */
     --aviation-primary: #3b82f6;
     --aviation-primary-hover: #2563eb;
@@ -1617,8 +1617,44 @@ a:hover {
 }
 
 /* Dark theme support for scenario components */
+.dark-theme .page {
+    background-color: var(--bg-primary);
+}
+
 .dark-theme .aviation-panel {
-    background: linear-gradient(135deg, var(--aviation-primary), var(--aviation-accent));
+    background: rgba(15, 23, 42, 0.92);
+    border-color: rgba(148, 163, 184, 0.35);
+    box-shadow: 0 18px 40px -22px rgba(15, 23, 42, 0.85);
+}
+
+.dark-theme .aviation-panel-header {
+    color: var(--text-primary);
+}
+
+.dark-theme .aviation-panel-header i {
+    color: var(--aviation-info);
+}
+
+.dark-theme .btn-outline-primary {
+    color: var(--aviation-accent);
+    border-color: rgba(56, 189, 248, 0.6);
+}
+
+.dark-theme .btn-outline-primary:hover,
+.dark-theme .btn-outline-primary:focus {
+    background-color: rgba(56, 189, 248, 0.12);
+    border-color: rgba(56, 189, 248, 0.85);
+    color: var(--aviation-accent);
+}
+
+.dark-theme .alert-info {
+    background-color: rgba(59, 130, 246, 0.18);
+    border-color: rgba(59, 130, 246, 0.32);
+    color: var(--text-primary);
+}
+
+.dark-theme .alert-info strong {
+    color: var(--text-primary);
 }
 
 .dark-theme .scenario-card.selected {

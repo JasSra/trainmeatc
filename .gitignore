@@ -8,3 +8,5 @@ app_data/
 *.db-wal
 publish/
 .env
+
+.fake

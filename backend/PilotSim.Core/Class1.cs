@@ -10,13 +10,30 @@ public interface ISttService {
     Task<SttResult> TranscribeAsync(Stream wavStream, string biasPrompt, CancellationToken cancellationToken);
 }
 
+public record ComponentScore(
+    string Code,
+    string Category,
+    string Severity, // info, minor, major, critical
+    double Weight,
+    double Score, // raw component score 0-1
+    double Delta, // contribution to total
+    string? Detail);
+
 public record InstructorVerdict(
     IReadOnlyList<string> Critical,
     IReadOnlyList<string> Improvements,
     string? ExemplarReadback,
     double Normalized,
     int ScoreDelta,
-    string BlockReason);
+    string BlockReason,
+    // Phase 2 additions (optional; supply defaults for backward compatibility)
+    IReadOnlyList<ComponentScore>? Components = null,
+    double? PhraseAccuracy = null,
+    double? Ordering = null,
+    double? Omissions = null,
+    double? Safety = null,
+    bool? SafetyFlag = null,
+    string? RubricVersion = null);
 
 public interface IInstructorService {
     Task<InstructorVerdict> ScoreAsync(string transcript, object state, Difficulty difficulty, CancellationToken cancellationToken);

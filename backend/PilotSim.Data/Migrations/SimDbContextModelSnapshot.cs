@@ -592,6 +592,40 @@ namespace PilotSim.Data.Migrations
                         .HasColumnType("TEXT")
                         .HasColumnName("verdict");
 
+                    b.Property<string>("StartedUtc")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("started_utc");
+
+                    b.Property<int?>("SttMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("stt_ms");
+
+                    b.Property<int?>("InstructorMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("instructor_ms");
+
+                    b.Property<int?>("AtcMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("atc_ms");
+
+                    b.Property<int?>("TtsMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("tts_ms");
+
+                    b.Property<int?>("TotalMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("total_ms");
+
+                    b.Property<int?>("ScoreDelta")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("score_delta");
+
+                    b.Property<bool>("Blocked")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false)
+                        .HasColumnName("blocked");
+
                     b.HasKey("Id");
 
                     b.HasIndex("SessionId");

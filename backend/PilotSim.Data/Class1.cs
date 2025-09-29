@@ -96,8 +96,34 @@ public class Turn
     public string? AtcJson { get; set; }
     public string? TtsAudioPath { get; set; }
     public string? Verdict { get; set; }
+    // Phase 1: Added detailed timing + scoring persistence
+    public string? StartedUtc { get; set; } // ISO8601 start time of processing
+    public int? SttMs { get; set; }
+    public int? InstructorMs { get; set; }
+    public int? AtcMs { get; set; }
+    public int? TtsMs { get; set; }
+    public int? TotalMs { get; set; }
+    public int? ScoreDelta { get; set; }
+    public bool Blocked { get; set; }
     
     public Session? Session { get; set; }
+    public ICollection<VerdictDetail> VerdictDetails { get; set; } = new List<VerdictDetail>();
+}
+
+public class VerdictDetail
+{
+    public int Id { get; set; }
+    public int TurnId { get; set; }
+    public string Code { get; set; } = string.Empty; // Component code e.g., PA_CALLSIGN
+    public string Category { get; set; } = string.Empty; // PhraseAccuracy, Ordering, Omissions, Safety
+    public string Severity { get; set; } = string.Empty; // info, minor, major, critical
+    public double? Weight { get; set; }
+    public double? Score { get; set; }
+    public double? Delta { get; set; }
+    public string? Detail { get; set; }
+    public string? RubricVersion { get; set; }
+
+    public Turn Turn { get; set; } = null!;
 }
 
 public class Metric

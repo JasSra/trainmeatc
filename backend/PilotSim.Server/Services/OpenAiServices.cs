@@ -50,24 +50,39 @@ public class OpenAiSttService : ISttService
 public class OpenAiInstructorService : IInstructorService
 {
     private readonly OpenAIClient _client;
-    private readonly ILogger<OpenAiInstructorService> _logger;
-    private const string SystemPrompt = @"You are ""Instructor"". Task: score and coach pilot radio calls per AIP Australia.
+        private readonly ILogger<OpenAiInstructorService> _logger;
+        private const string SystemPrompt = """
+You are "Instructor". Task: score and coach pilot radio calls per AIP Australia.
 
-Evaluate the pilot's radio transmission for:
-1. Proper callsign usage (VH-XXX format)
-2. Correct phraseology per AIP Australia
-3. Clear and complete transmission
-4. Appropriate aviation terminology
+Evaluate against rubric dimensions:
+- Phrase Accuracy (accuracy of phraseology & callsign)
+- Ordering (logical sequence / structure)
+- Omissions (missing required elements)
+- Safety (potential safety impact)
 
-Provide structured feedback with:
-- Critical errors that must be fixed
-- Areas for improvement 
-- An exemplar readback if applicable
-- Normalized score 0.0-1.0
-- Score delta for this turn
-- Block reason if transmission should be rejected
-
-Use Australian aviation phraseology and standards.";
+Return structured JSON with keys:
+{
+    "critical": [..],
+    "improvements": [..],
+    "exemplarReadback": string|null,
+    "normalized": 0.0-1.0,
+    "scoreDelta": int,
+    "blockReason": string,
+    "rubricVersion": "v1",
+    "phraseAccuracy": 0.0-1.0,
+    "ordering": 0.0-1.0,
+    "omissions": 0.0-1.0,
+    "safety": 0.0-1.0,
+    "safetyFlag": true/false,
+    "components": [
+        {"code":"PA_CALLSIGN","category":"PhraseAccuracy","severity":"minor","weight":0.25,"score":0.8,"delta":3,"detail":"Correct prefix; minor phonetics lapses"},
+        {"code":"OM_ALT","category":"Omissions","severity":"major","weight":0.20,"score":0.2,"delta":-4,"detail":"Altitude missing"}
+    ]
+}
+Rules:
+- Keep list sizes small (<=5 critical). Use Australian aviation phraseology.
+- Block if any safety-critical lapse endangers separation or clarity.
+""";
 
     public OpenAiInstructorService(OpenAIClient client, ILogger<OpenAiInstructorService> logger)
     {
@@ -84,20 +99,10 @@ Use Australian aviation phraseology and standards.";
             var messages = new List<ChatMessage>
             {
                 new SystemChatMessage(SystemPrompt),
-                new UserChatMessage($@"Evaluate this pilot transmission:
+                new UserChatMessage($@"Evaluate this pilot transmission JSON only no prose:
 Transcript: ""{transcript}""
 Difficulty: {difficulty}
-Current State: {JsonSerializer.Serialize(state)}
-
-Provide your assessment in JSON format with the structure:
-{{
-    ""critical"": [""string array of critical errors""],
-    ""improvements"": [""string array of improvement suggestions""],
-    ""exemplarReadback"": ""correct version or null"",
-    ""normalized"": 0.85,
-    ""scoreDelta"": 8,
-    ""blockReason"": ""reason if blocked or empty string""
-}}")
+Current State: {JsonSerializer.Serialize(state)}")
             };
 
             var response = await chatClient.CompleteChatAsync(messages, cancellationToken: cancellationToken);
@@ -105,14 +110,38 @@ Provide your assessment in JSON format with the structure:
 
             // Parse JSON response
             var verdictJson = JsonSerializer.Deserialize<JsonElement>(content);
-            
+
+            List<ComponentScore>? components = null;
+            if (verdictJson.TryGetProperty("components", out var comps) && comps.ValueKind == JsonValueKind.Array)
+            {
+                components = comps.EnumerateArray().Select(c => new ComponentScore(
+                    Code: c.GetProperty("code").GetString() ?? "UNKNOWN",
+                    Category: c.GetProperty("category").GetString() ?? "General",
+                    Severity: c.GetProperty("severity").GetString() ?? "info",
+                    Weight: c.TryGetProperty("weight", out var wt) ? wt.GetDouble() : 0,
+                    Score: c.TryGetProperty("score", out var sc) ? sc.GetDouble() : 0,
+                    Delta: c.TryGetProperty("delta", out var d) ? d.GetDouble() : 0,
+                    Detail: c.TryGetProperty("detail", out var dt) ? dt.GetString() : null
+                )).ToList();
+            }
+
+            double? GetNullableDouble(string name) => verdictJson.TryGetProperty(name, out var p) && p.ValueKind is JsonValueKind.Number ? p.GetDouble() : null;
+            bool? GetNullableBool(string name) => verdictJson.TryGetProperty(name, out var p) && p.ValueKind is JsonValueKind.True or JsonValueKind.False ? p.GetBoolean() : null;
+
             return new InstructorVerdict(
                 Critical: verdictJson.GetProperty("critical").EnumerateArray().Select(x => x.GetString() ?? "").ToList(),
                 Improvements: verdictJson.GetProperty("improvements").EnumerateArray().Select(x => x.GetString() ?? "").ToList(),
                 ExemplarReadback: verdictJson.TryGetProperty("exemplarReadback", out var exemplar) ? exemplar.GetString() : null,
                 Normalized: verdictJson.GetProperty("normalized").GetDouble(),
                 ScoreDelta: verdictJson.GetProperty("scoreDelta").GetInt32(),
-                BlockReason: verdictJson.GetProperty("blockReason").GetString() ?? ""
+                BlockReason: verdictJson.GetProperty("blockReason").GetString() ?? "",
+                Components: components,
+                PhraseAccuracy: GetNullableDouble("phraseAccuracy"),
+                Ordering: GetNullableDouble("ordering"),
+                Omissions: GetNullableDouble("omissions"),
+                Safety: GetNullableDouble("safety"),
+                SafetyFlag: GetNullableBool("safetyFlag"),
+                RubricVersion: verdictJson.TryGetProperty("rubricVersion", out var rv) ? rv.GetString() : null
             );
         }
         catch (Exception ex)

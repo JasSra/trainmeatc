@@ -20,6 +20,7 @@ public class SimDbContext : DbContext
     public DbSet<PilotProfile> PilotProfiles { get; set; }
     public DbSet<Airspace> Airspaces { get; set; }
     public DbSet<AirspaceNotice> AirspaceNotices { get; set; }
+    public DbSet<VerdictDetail> VerdictDetails { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -118,12 +119,41 @@ public class SimDbContext : DbContext
             entity.Property(e => e.AtcJson).HasColumnName("atc_json");
             entity.Property(e => e.TtsAudioPath).HasColumnName("tts_audio_path");
             entity.Property(e => e.Verdict).HasColumnName("verdict");
+            entity.Property(e => e.StartedUtc).HasColumnName("started_utc");
+            entity.Property(e => e.SttMs).HasColumnName("stt_ms");
+            entity.Property(e => e.InstructorMs).HasColumnName("instructor_ms");
+            entity.Property(e => e.AtcMs).HasColumnName("atc_ms");
+            entity.Property(e => e.TtsMs).HasColumnName("tts_ms");
+            entity.Property(e => e.TotalMs).HasColumnName("total_ms");
+            entity.Property(e => e.ScoreDelta).HasColumnName("score_delta");
+            entity.Property(e => e.Blocked).HasColumnName("blocked").HasDefaultValue(false);
             
             entity.HasOne(e => e.Session)
                 .WithMany(s => s.Turns)
                 .HasForeignKey(e => e.SessionId);
+
+            entity.HasMany(e => e.VerdictDetails)
+                .WithOne(d => d.Turn)
+                .HasForeignKey(d => d.TurnId);
             
             entity.ToTable("turn");
+        });
+
+        // VerdictDetail configuration
+        modelBuilder.Entity<VerdictDetail>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.TurnId).HasColumnName("turn_id");
+            entity.Property(e => e.Code).HasColumnName("code");
+            entity.Property(e => e.Category).HasColumnName("category");
+            entity.Property(e => e.Severity).HasColumnName("severity");
+            entity.Property(e => e.Weight).HasColumnName("weight");
+            entity.Property(e => e.Score).HasColumnName("score");
+            entity.Property(e => e.Delta).HasColumnName("delta");
+            entity.Property(e => e.Detail).HasColumnName("detail");
+            entity.Property(e => e.RubricVersion).HasColumnName("rubric_version");
+            entity.ToTable("verdict_detail");
         });
 
         // Metric configuration

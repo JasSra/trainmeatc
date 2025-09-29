@@ -1,7 +1,7 @@
 ﻿@inherits LayoutComponentBase
 @inject IJSRuntime JSRuntime
 
-<div class="page @(isDarkMode ? "dark-theme" : "light-theme")">
+<div class="page">
     <div class="sidebar">
         <NavMenu />
     </div>
@@ -39,40 +39,38 @@
 </div>
 
 @code {
-    private bool isDarkMode = false;
+    private bool isDarkMode;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            // Check for saved dark mode preference
             try
             {
-                var savedTheme = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "theme");
-                isDarkMode = savedTheme == "dark";
-                StateHasChanged();
+                var theme = await JSRuntime.InvokeAsync<string>("themeManager.initialize");
+                isDarkMode = string.Equals(theme, "dark", StringComparison.OrdinalIgnoreCase);
             }
             catch
             {
-                // Fallback if localStorage is not available
                 isDarkMode = false;
             }
+
+            StateHasChanged();
         }
     }
 
     private async Task ToggleDarkMode()
     {
-        isDarkMode = !isDarkMode;
-        
         try
         {
-            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "theme", isDarkMode ? "dark" : "light");
+            var theme = await JSRuntime.InvokeAsync<string>("themeManager.toggleTheme");
+            isDarkMode = string.Equals(theme, "dark", StringComparison.OrdinalIgnoreCase);
         }
         catch
         {
-            // Fallback if localStorage is not available
+            isDarkMode = !isDarkMode;
         }
-        
+
         StateHasChanged();
     }
 }

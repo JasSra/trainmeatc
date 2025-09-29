@@ -8,6 +8,8 @@ let microphone = null;
 let dataArray = null;
 let animationId = null;
 
+window.trainmeAudio = window.trainmeAudio || {};
+
 // Initialize audio capture
 window.startAudioCapture = async function() {
     try {
@@ -127,8 +129,8 @@ async function processAudioChunks() {
         // Create blob from recorded chunks
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm;codecs=opus' });
         
-        // Send to server for STT processing
-        await sendAudioToServer(audioBlob);
+        // Send to server to process the simulation turn
+        await sendTurnAudio(audioBlob);
         
     } catch (error) {
         console.error('Error processing audio:', error);
@@ -149,19 +151,18 @@ function blobToBase64(blob) {
 }
 
 // Send audio to server for processing
-async function sendAudioToServer(audioBlob) {
+async function sendTurnAudio(audioBlob) {
     try {
+        if (!window.currentSessionId) {
+            throw new Error('Training session has not been started.');
+        }
+
         // Create FormData to send audio file
         const formData = new FormData();
         formData.append('audio', audioBlob, 'recording.webm');
-        formData.append('biasPrompt', 'aviation communication pilot ATC radio');
-        
-        // Try to get sessionId from window if available
-        if (window.currentSessionId) {
-            formData.append('sessionId', window.currentSessionId);
-        }
-        
-        const response = await fetch('/api/stt', {
+        formData.append('SessionId', window.currentSessionId);
+
+        const response = await fetch('/api/simulation/turn', {
             method: 'POST',
             body: formData
         });
@@ -171,11 +172,11 @@ async function sendAudioToServer(audioBlob) {
         }
         
         const result = await response.json();
-        console.log('STT result:', result);
+        console.log('Turn result:', result);
         
         // Notify Blazor component of the result
-        if (window.blazorSttCallback && result.text) {
-            await window.blazorSttCallback(result.text, result.confidence || 0.0);
+        if (window.blazorTurnResultCallback) {
+            await window.blazorTurnResultCallback(result);
         }
         
         return result;
@@ -218,6 +219,87 @@ window.getAudioDevices = async function() {
     } catch (error) {
         console.error('Error getting audio devices:', error);
         return [];
+    }
+};
+
+// Play a short test tone to confirm speaker output
+window.playTestTone = function() {
+    try {
+        const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextConstructor) {
+            throw new Error('Web Audio API is not supported in this browser.');
+        }
+
+        const context = new AudioContextConstructor();
+        const oscillator = context.createOscillator();
+        const gainNode = context.createGain();
+
+        oscillator.type = 'sine';
+        oscillator.frequency.value = 880; // A5 tone
+        gainNode.gain.value = 0.15;
+
+        oscillator.connect(gainNode);
+        gainNode.connect(context.destination);
+
+        oscillator.start();
+        oscillator.stop(context.currentTime + 1.0);
+        oscillator.onended = () => {
+            gainNode.disconnect();
+            context.close();
+        };
+    } catch (error) {
+        console.error('Error playing test tone:', error);
+        throw error;
+    }
+};
+
+window.trainmeAudio.testMicrophone = async function() {
+    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
+        return { success: false, message: 'Browser does not support microphone capture.' };
+    }
+
+    let testStream;
+    try {
+        testStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                sampleRate: 16000,
+                channelCount: 1,
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            }
+        });
+
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const inputCount = devices.filter(device => device.kind === 'audioinput').length;
+
+        return {
+            success: true,
+            message: inputCount > 0
+                ? `Detected ${inputCount} audio input${inputCount === 1 ? '' : 's'}.`
+                : 'Microphone access granted.'
+        };
+    } catch (error) {
+        console.error('Microphone test failed:', error);
+        let message = 'Unable to access microphone.';
+        if (error && (error.name === 'NotAllowedError' || error.name === 'SecurityError')) {
+            message = 'Microphone permission denied. Please enable access and try again.';
+        }
+        return { success: false, message };
+    } finally {
+        if (testStream) {
+            testStream.getTracks().forEach(track => track.stop());
+        }
+    }
+};
+
+window.trainmeAudio.testSpeakers = async function() {
+    try {
+        window.playTestTone();
+        return { success: true, message: 'Tone played. Adjust your volume if you did not hear it.' };
+    } catch (error) {
+        console.error('Speaker test failed:', error);
+        return { success: false, message: 'Unable to play test tone. Check your output device.' };
     }
 };
 
