@@ -162,9 +162,16 @@ async function sendTurnAudio(audioBlob) {
         formData.append('audio', audioBlob, 'recording.webm');
         formData.append('SessionId', window.currentSessionId);
 
+        const headers = new Headers();
+        if (window.antiforgery) {
+            window.antiforgery.apply(headers);
+        }
+
         const response = await fetch('/api/simulation/turn', {
             method: 'POST',
-            body: formData
+            body: formData,
+            headers,
+            credentials: 'include'
         });
         
         if (!response.ok) {

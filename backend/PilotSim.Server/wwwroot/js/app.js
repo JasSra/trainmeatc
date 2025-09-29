@@ -161,6 +161,34 @@ window.playAudio = (elementId, audioPath) => {
     }
 })();
 
+// Antiforgery helpers for fetch requests
+(function () {
+    const COOKIE_NAME = 'RequestVerificationToken';
+
+    function readCookie(name) {
+        const pattern = new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()\[\]\\\/\+^])/g, '\\$1') + '=([^;]*)');
+        const match = document.cookie.match(pattern);
+        return match ? decodeURIComponent(match[1]) : null;
+    }
+
+    function getToken() {
+        return readCookie(COOKIE_NAME);
+    }
+
+    function apply(headers) {
+        const token = getToken();
+        if (token && headers) {
+            headers.set('RequestVerificationToken', token);
+        }
+        return headers;
+    }
+
+    window.antiforgery = {
+        getToken,
+        apply
+    };
+})();
+
 // Plotly branding utilities for consistent styling
 (function () {
     if (typeof window === 'undefined') {

@@ -30,7 +30,7 @@ This document tracks the implementation progress of the ATC radio communication 
 - [x] **Score Integrity**: Session score now reflects only non-blocked turn deltas; blocked turns stored for analytics but excluded from cumulative score.
 - [x] **SignalR Refinement**: `scoreTick` emitted only when score actually changes (avoids noise on blocked/zero-delta turns).
 
-### 🔄 Milestone 2 - Debrief & Scoring (IN PROGRESS)
+### ✅ Milestone 2 - Debrief & Scoring (COMPLETED)
 
 - [x] Structured scoring rubric (components + sub-scores) parsed & persisted
 - [x] VerdictDetail table & per-turn component persistence
@@ -39,9 +39,11 @@ This document tracks the implementation progress of the ATC radio communication 
 - [x] Reproducibility deterministic scoring test harness
 - [x] User audio persistence (raw upload saved + path stored per turn)
 - [x] Session summary API (`GET /api/simulation/session/{id}/summary`) with aggregates + enriched turns
-- [ ] Debrief Razor page consuming summary API
-- [ ] Replay timeline with audio + transcripts UI polish
-- [ ] Detailed aggregate performance metrics visualization
+- [x] Debrief Razor page consuming summary API (audio replay + timeline)
+- [x] Replay timeline with audio + transcripts and component metrics
+- [x] Detailed aggregate performance metrics visualization (trend, issues, averages)
+  
+Documentation final polish pending (this file just updated). Next milestone will focus on hardening.
 
 ### 📋 Milestone 3 - Hardening (PLANNED)
 

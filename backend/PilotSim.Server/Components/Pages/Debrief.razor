@@ -3,11 +3,13 @@
 @using Microsoft.EntityFrameworkCore
 @using PilotSim.Data
 @using PilotSim.Data.Models
+@using PilotSim.Core
 @using System.Text.Json
 @using Plotly.NET
 @using Plotly.NET.LayoutObjects
 @inject NavigationManager Navigation
 @inject SimDbContext DbContext
+@inject HttpClient Http
 @inject IJSRuntime JSRuntime
 
 <PageTitle>Session Debrief - TrainMeATC</PageTitle>
@@ -443,20 +445,51 @@
     
     private Session? session;
     private List<Turn> turns = new();
+    private SummaryResponse? summary;
     private bool showPerformanceChart = false;
     
     protected override async Task OnInitializedAsync()
     {
+        // Load base session (for scenario + score) and then summary API for enriched data
         session = await DbContext.Sessions
             .Include(s => s.Scenario)
-            .ThenInclude(sc => sc!.Airport)
-            .Include(s => s.Turns)
-            .Include(s => s.Metrics)
             .FirstOrDefaultAsync(s => s.Id == SessionId);
-            
-        if (session?.Turns != null)
+
+        try
         {
-            turns = session.Turns.ToList();
+            summary = await Http.GetFromJsonAsync<SummaryResponse>($"api/simulation/session/{SessionId}/summary");
+            if (summary != null)
+            {
+                // Map enriched summary turns to lightweight Turn objects for existing helpers (fallback for scoring display)
+                turns = summary.Turns.Select(t => new Turn
+                {
+                    Id = t.Id,
+                    Idx = t.Idx,
+                    UserTranscript = t.UserTranscript,
+                    UserAudioPath = t.UserAudioPath,
+                    TtsAudioPath = t.TtsAudioPath,
+                    InstructorJson = t.VerdictJson,
+                    AtcJson = t.AtcJson,
+                    ScoreDelta = t.ScoreDelta,
+                    Blocked = t.Blocked,
+                    StartedUtc = t.StartedUtc,
+                    SttMs = t.SttMs,
+                    InstructorMs = t.InstructorMs,
+                    AtcMs = t.AtcMs,
+                    TtsMs = t.TtsMs,
+                    TotalMs = t.TotalMs
+                }).ToList();
+
+                // Override session score total if provided
+                if (session != null && summary.ScoreTotal.HasValue)
+                {
+                    session.ScoreTotal = summary.ScoreTotal.Value;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to load summary API: {ex.Message}");
         }
     }
     
@@ -934,5 +967,62 @@
     private void GoHome()
     {
         Navigation.NavigateTo("/");
+    }
+
+    // Summary DTOs
+    private class SummaryResponse
+    {
+        public int SessionId { get; set; }
+        public int? ScoreTotal { get; set; }
+        public int TotalTurns { get; set; }
+        public int BlockedTurns { get; set; }
+        public int SuccessfulTurns { get; set; }
+        public int SafetyIssues { get; set; }
+        public double AvgNormalized { get; set; }
+        public double PhraseAccuracyAvg { get; set; }
+        public double OrderingAvg { get; set; }
+        public double OmissionsAvg { get; set; }
+        public double SafetyAvg { get; set; }
+        public List<ComponentFrequencyItem> ComponentFrequency { get; set; } = new();
+        public List<SummaryTurn> Turns { get; set; } = new();
+    }
+
+    private class ComponentFrequencyItem
+    {
+        public string Code { get; set; } = string.Empty;
+        public int Count { get; set; }
+        public string Category { get; set; } = string.Empty;
+    }
+
+    private class SummaryTurn
+    {
+        public int Id { get; set; }
+        public int? Idx { get; set; }
+        public string? UserTranscript { get; set; }
+        public string? UserAudioPath { get; set; }
+        public string? TtsAudioPath { get; set; }
+        public int? ScoreDelta { get; set; }
+        public bool Blocked { get; set; }
+        public string? StartedUtc { get; set; }
+        public int? SttMs { get; set; }
+        public int? InstructorMs { get; set; }
+        public int? AtcMs { get; set; }
+        public int? TtsMs { get; set; }
+        public int? TotalMs { get; set; }
+        public List<ComponentItem> Components { get; set; } = new();
+    public InstructorVerdict? Verdict { get; set; }
+    public string? VerdictJson => Verdict is not null ? JsonSerializer.Serialize(Verdict) : null;
+        public string? AtcJson { get; set; }
+    }
+
+    private class ComponentItem
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+        public string Severity { get; set; } = string.Empty;
+        public double? Weight { get; set; }
+        public double? Score { get; set; }
+        public double? Delta { get; set; }
+        public string? Detail { get; set; }
     }
 }
