@@ -10,3 +10,5 @@ publish/
 .env
 
 .fake
+/backend/PilotSim.Server/wwwroot/useraudio
+/backend/.vs
