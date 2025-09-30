@@ -47,187 +47,41 @@ public class OpenAiSttService : ISttService
     }
 }
 
-public class OpenAiInstructorService : IInstructorService
+// Old implementations removed - now using OpenAiInstructorServiceV2 and OpenAiTrafficAgentService from TurnService.cs
+
+// Adapter to allow SimulationController to keep working with old API while using new ITrafficAgent
+public class AtcServiceAdapter : IAtcService
 {
-    private readonly OpenAIClient _client;
-        private readonly ILogger<OpenAiInstructorService> _logger;
-        private const string SystemPrompt = """
-You are "Instructor". Task: score and coach pilot radio calls per AIP Australia.
+    private readonly PilotSim.Server.Services.ITrafficAgent _trafficAgent;
+    private readonly ILogger<AtcServiceAdapter> _logger;
 
-Evaluate against rubric dimensions:
-- Phrase Accuracy (accuracy of phraseology & callsign)
-- Ordering (logical sequence / structure)
-- Omissions (missing required elements)
-- Safety (potential safety impact)
-
-Return structured JSON with keys:
-{
-    "critical": [..],
-    "improvements": [..],
-    "exemplarReadback": string|null,
-    "normalized": 0.0-1.0,
-    "scoreDelta": int,
-    "blockReason": string,
-    "rubricVersion": "v1",
-    "phraseAccuracy": 0.0-1.0,
-    "ordering": 0.0-1.0,
-    "omissions": 0.0-1.0,
-    "safety": 0.0-1.0,
-    "safetyFlag": true/false,
-    "components": [
-        {"code":"PA_CALLSIGN","category":"PhraseAccuracy","severity":"minor","weight":0.25,"score":0.8,"delta":3,"detail":"Correct prefix; minor phonetics lapses"},
-        {"code":"OM_ALT","category":"Omissions","severity":"major","weight":0.20,"score":0.2,"delta":-4,"detail":"Altitude missing"}
-    ]
-}
-Rules:
-- Keep list sizes small (<=5 critical). Use Australian aviation phraseology.
-- Block if any safety-critical lapse endangers separation or clarity.
-""";
-
-    public OpenAiInstructorService(OpenAIClient client, ILogger<OpenAiInstructorService> logger)
+    public AtcServiceAdapter(PilotSim.Server.Services.ITrafficAgent trafficAgent, ILogger<AtcServiceAdapter> logger)
     {
-        _client = client;
+        _trafficAgent = trafficAgent;
         _logger = logger;
     }
 
-    public async Task<InstructorVerdict> ScoreAsync(string transcript, object state, Difficulty difficulty, CancellationToken cancellationToken)
+    public async Task<AtcReply> NextAsync(string transcript, object state, Difficulty difficulty, Load load, CancellationToken ct)
     {
         try
         {
-            var chatClient = _client.GetChatClient("gpt-4o-mini");
-            
-            var messages = new List<ChatMessage>
-            {
-                new SystemChatMessage(SystemPrompt),
-                new UserChatMessage($@"Evaluate this pilot transmission JSON only no prose:
-Transcript: ""{transcript}""
-Difficulty: {difficulty}
-Current State: {JsonSerializer.Serialize(state)}")
-            };
-
-            var response = await chatClient.CompleteChatAsync(messages, cancellationToken: cancellationToken);
-            var content = response.Value.Content[0].Text;
-
-            // Parse JSON response
-            var verdictJson = JsonSerializer.Deserialize<JsonElement>(content);
-
-            List<ComponentScore>? components = null;
-            if (verdictJson.TryGetProperty("components", out var comps) && comps.ValueKind == JsonValueKind.Array)
-            {
-                components = comps.EnumerateArray().Select(c => new ComponentScore(
-                    Code: c.GetProperty("code").GetString() ?? "UNKNOWN",
-                    Category: c.GetProperty("category").GetString() ?? "General",
-                    Severity: c.GetProperty("severity").GetString() ?? "info",
-                    Weight: c.TryGetProperty("weight", out var wt) ? wt.GetDouble() : 0,
-                    Score: c.TryGetProperty("score", out var sc) ? sc.GetDouble() : 0,
-                    Delta: c.TryGetProperty("delta", out var d) ? d.GetDouble() : 0,
-                    Detail: c.TryGetProperty("detail", out var dt) ? dt.GetString() : null
-                )).ToList();
-            }
-
-            double? GetNullableDouble(string name) => verdictJson.TryGetProperty(name, out var p) && p.ValueKind is JsonValueKind.Number ? p.GetDouble() : null;
-            bool? GetNullableBool(string name) => verdictJson.TryGetProperty(name, out var p) && p.ValueKind is JsonValueKind.True or JsonValueKind.False ? p.GetBoolean() : null;
-
-            return new InstructorVerdict(
-                Critical: verdictJson.GetProperty("critical").EnumerateArray().Select(x => x.GetString() ?? "").ToList(),
-                Improvements: verdictJson.GetProperty("improvements").EnumerateArray().Select(x => x.GetString() ?? "").ToList(),
-                ExemplarReadback: verdictJson.TryGetProperty("exemplarReadback", out var exemplar) ? exemplar.GetString() : null,
-                Normalized: verdictJson.GetProperty("normalized").GetDouble(),
-                ScoreDelta: verdictJson.GetProperty("scoreDelta").GetInt32(),
-                BlockReason: verdictJson.GetProperty("blockReason").GetString() ?? "",
-                Components: components,
-                PhraseAccuracy: GetNullableDouble("phraseAccuracy"),
-                Ordering: GetNullableDouble("ordering"),
-                Omissions: GetNullableDouble("omissions"),
-                Safety: GetNullableDouble("safety"),
-                SafetyFlag: GetNullableBool("safetyFlag"),
-                RubricVersion: verdictJson.TryGetProperty("rubricVersion", out var rv) ? rv.GetString() : null
-            );
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to score transcript: {Transcript}", transcript);
-            // Return neutral score on error
-            return new InstructorVerdict(
-                Critical: new List<string> { "System error - please try again" },
-                Improvements: new List<string>(),
-                ExemplarReadback: null,
-                Normalized: 0.5,
-                ScoreDelta: 0,
-                BlockReason: "System error"
-            );
-        }
-    }
-}
-
-public class OpenAiAtcService : IAtcService
-{
-    private readonly OpenAIClient _client;
-    private readonly ILogger<OpenAiAtcService> _logger;
-    private const string SystemPrompt = @"You are ""ATC Controller"" at an Australian airport. Respond to pilot transmissions with proper ATC phraseology per AIP Australia.
-
-Provide realistic ATC responses considering:
-1. Current traffic situation and load
-2. Airport operations and runway status
-3. Weather conditions (QNH, wind)
-4. Standard taxi/takeoff/landing procedures
-5. Australian aviation phraseology
-
-Always include expected pilot readbacks and update the simulation state appropriately.
-
-Maintain professional, clear communications as a real ATC controller would.";
-
-    public OpenAiAtcService(OpenAIClient client, ILogger<OpenAiAtcService> logger)
-    {
-        _client = client;
-        _logger = logger;
-    }
-
-    public async Task<AtcReply> NextAsync(string transcript, object state, Difficulty difficulty, Load load, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var chatClient = _client.GetChatClient("gpt-4o-mini");
-            
-            var messages = new List<ChatMessage>
-            {
-                new SystemChatMessage(SystemPrompt),
-                new UserChatMessage($@"Pilot transmission: ""{transcript}""
-Current State: {JsonSerializer.Serialize(state)}
-Difficulty: {difficulty}
-Load: Traffic Density: {load.TrafficDensity}, Clarity: {load.Clarity}, Controller Persona: {load.ControllerPersona}
-
-Provide ATC response in JSON format:
-{{
-    ""transmission"": ""ATC response text"",
-    ""expectedReadback"": [""array of expected pilot readback options""],
-    ""nextState"": {{""updated simulation state object""}},
-    ""holdShort"": true/false,
-    ""ttsTone"": ""professional/urgent/calm""
-}}")
-            };
-
-            var response = await chatClient.CompleteChatAsync(messages, cancellationToken: cancellationToken);
-            var content = response.Value.Content[0].Text;
-
-            // Parse JSON response
-            var replyJson = JsonSerializer.Deserialize<JsonElement>(content);
+            // Use traffic agent for now - in the new architecture this would be routed through TurnService
+            var trafficReply = await _trafficAgent.NextAsync(transcript, state, difficulty, ct);
             
             return new AtcReply(
-                Transmission: replyJson.GetProperty("transmission").GetString() ?? "",
-                ExpectedReadback: replyJson.GetProperty("expectedReadback").EnumerateArray().Select(x => x.GetString() ?? "").ToList(),
-                NextState: JsonSerializer.Deserialize<object>(replyJson.GetProperty("nextState").GetRawText()),
-                HoldShort: replyJson.TryGetProperty("holdShort", out var hold) ? hold.GetBoolean() : null,
-                TtsTone: replyJson.TryGetProperty("ttsTone", out var tone) ? tone.GetString() : null
+                Transmission: trafficReply.Transmission,
+                ExpectedReadback: trafficReply.ExpectedReadback,
+                NextState: trafficReply.NextState,
+                HoldShort: null,
+                TtsTone: trafficReply.TtsTone
             );
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to generate ATC response for transcript: {Transcript}", transcript);
-            // Return default response on error
+            _logger.LogError(ex, "Failed to generate ATC response via adapter");
             return new AtcReply(
                 Transmission: "Say again, transmission unclear",
-                ExpectedReadback: new List<string> { "Transmission unclear, [callsign]" },
+                ExpectedReadback: new List<string> { "Transmission unclear" },
                 NextState: state,
                 HoldShort: null,
                 TtsTone: "professional"

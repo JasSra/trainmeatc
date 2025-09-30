@@ -78,16 +78,6 @@ namespace PilotSim.Server.Services
         Task<TurnResponse> ProcessTurnAsync(TurnRequest req, CancellationToken ct = default);
     }
 
-    public interface IAtcService
-    {
-        Task<AtcReply> NextAsync(string transcript, object state, Difficulty diff, Load load, CancellationToken ct);
-    }
-
-    public interface IInstructorService
-    {
-        Task<InstructorVerdict> ScoreAsync(string transcript, object state, Difficulty difficulty, CancellationToken ct);
-    }
-
     // Optional: per-user client resolution (single app key also supported)
     public interface IOpenAIClientResolver
     {
