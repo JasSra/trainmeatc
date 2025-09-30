@@ -630,7 +630,7 @@ public static class DbInitializer
         // Add comprehensive scenarios for different airports and aircraft types
         var scenarios = new List<Scenario>
         {
-            // Melbourne scenarios
+            // Melbourne scenarios - Using ScenarioWorkbookV2 format
             new Scenario
             {
                 Name = "Basic Taxi Request",
@@ -638,8 +638,67 @@ public static class DbInitializer
                 Kind = "taxi",
                 Difficulty = "Basic",
                 Seed = 12345,
-                InitialStateJson = "{\"position\":\"gate\",\"aircraft\":\"VH-ABC\",\"type\":\"C172\"}",
-                RubricJson = "{\"taxi_clearance\":10,\"readback_accuracy\":5}"
+                InitialStateJson = @"{
+                    ""meta"": {
+                        ""id"": ""ymml_taxi_basic"",
+                        ""version"": ""2.0"",
+                        ""author"": ""TrainMeATC System""
+                    },
+                    ""inputs"": {
+                        ""icao"": ""YMML"",
+                        ""aircraft"": ""C172"",
+                        ""variability"": 0.3,
+                        ""load"": 0.2
+                    },
+                    ""context_resolved"": {
+                        ""airport"": {
+                            ""icao"": ""YMML"",
+                            ""name"": ""Melbourne Airport"",
+                            ""tower_active"": true,
+                            ""tower_mhz"": 120.5,
+                            ""ground_mhz"": 121.7
+                        },
+                        ""runway_in_use"": ""16"",
+                        ""weather_si"": {},
+                        ""traffic_snapshot"": {
+                            ""density"": ""light"",
+                            ""actors"": [],
+                            ""conflicts"": []
+                        }
+                    },
+                    ""phases"": [
+                        {
+                            ""id"": ""taxi_request"",
+                            ""name"": ""Initial Taxi Request"",
+                            ""primary_freq_mhz"": 121.7,
+                            ""pilot_cue"": ""Request taxi clearance"",
+                            ""controller_policy"": ""Issue taxi clearance to holding point"",
+                            ""expected_readback"": [""CALLSIGN"", ""TAXI_ROUTE"", ""HOLDING_POINT""],
+                            ""required_components"": [""CALLSIGN"", ""LOCATION"", ""INTENTIONS""],
+                            ""responder_map"": {
+                                ""default"": ""ATC""
+                            },
+                            ""next_state"": {
+                                ""phase_id"": ""end""
+                            },
+                            ""branches"": []
+                        }
+                    ],
+                    ""rubric"": {
+                        ""readback_policy"": {
+                            ""mandatory_components"": [""CALLSIGN""],
+                            ""block_on_missing"": [""CALLSIGN""]
+                        }
+                    },
+                    ""completion"": {
+                        ""end_phase_id"": ""end""
+                    }
+                }",
+                RubricJson = "{\"taxi_clearance\":10,\"readback_accuracy\":5}",
+                FlightRules = "VFR",
+                PilotType = "Private",
+                OperationType = "Training",
+                EstimatedDurationMinutes = 10
             },
             new Scenario
             {
@@ -648,8 +707,84 @@ public static class DbInitializer
                 Kind = "departure",
                 Difficulty = "Intermediate",
                 Seed = 12346,
-                InitialStateJson = "{\"position\":\"gate\",\"aircraft\":\"VH-JQA\",\"type\":\"A320\",\"destination\":\"YSSY\"}",
-                RubricJson = "{\"clearance_readback\":15,\"taxi_compliance\":10,\"departure_execution\":20}"
+                InitialStateJson = @"{
+                    ""meta"": {
+                        ""id"": ""ymml_departure_ifr"",
+                        ""version"": ""2.0"",
+                        ""author"": ""TrainMeATC System""
+                    },
+                    ""inputs"": {
+                        ""icao"": ""YMML"",
+                        ""aircraft"": ""A320"",
+                        ""variability"": 0.4,
+                        ""load"": 0.5
+                    },
+                    ""context_resolved"": {
+                        ""airport"": {
+                            ""icao"": ""YMML"",
+                            ""name"": ""Melbourne Airport"",
+                            ""tower_active"": true,
+                            ""tower_mhz"": 120.5,
+                            ""ground_mhz"": 121.7,
+                            ""approach_mhz"": 132.0
+                        },
+                        ""runway_in_use"": ""16"",
+                        ""weather_si"": {},
+                        ""traffic_snapshot"": {
+                            ""density"": ""moderate"",
+                            ""actors"": [],
+                            ""conflicts"": []
+                        }
+                    },
+                    ""phases"": [
+                        {
+                            ""id"": ""clearance_request"",
+                            ""name"": ""IFR Clearance Request"",
+                            ""primary_freq_mhz"": 121.7,
+                            ""pilot_cue"": ""Request IFR clearance to YSSY"",
+                            ""controller_policy"": ""Issue IFR clearance with SID"",
+                            ""expected_readback"": [""CALLSIGN"", ""CLEARANCE"", ""SID"", ""SQUAWK""],
+                            ""required_components"": [""CALLSIGN"", ""DESTINATION"", ""ATIS""],
+                            ""responder_map"": {
+                                ""default"": ""ATC""
+                            },
+                            ""next_state"": {
+                                ""phase_id"": ""taxi_request""
+                            },
+                            ""branches"": []
+                        },
+                        {
+                            ""id"": ""taxi_request"",
+                            ""name"": ""Taxi Request"",
+                            ""primary_freq_mhz"": 121.7,
+                            ""pilot_cue"": ""Request taxi"",
+                            ""controller_policy"": ""Issue taxi clearance"",
+                            ""expected_readback"": [""CALLSIGN"", ""TAXI_ROUTE""],
+                            ""required_components"": [""CALLSIGN""],
+                            ""responder_map"": {
+                                ""default"": ""ATC""
+                            },
+                            ""next_state"": {
+                                ""phase_id"": ""end""
+                            },
+                            ""branches"": []
+                        }
+                    ],
+                    ""rubric"": {
+                        ""readback_policy"": {
+                            ""mandatory_components"": [""CALLSIGN"", ""CLEARANCE""],
+                            ""block_on_missing"": [""CALLSIGN""]
+                        }
+                    },
+                    ""completion"": {
+                        ""end_phase_id"": ""end""
+                    }
+                }",
+                RubricJson = "{\"clearance_readback\":15,\"taxi_compliance\":10,\"departure_execution\":20}",
+                FlightRules = "IFR",
+                PilotType = "Commercial",
+                OperationType = "Cross-Country",
+                EstimatedDurationMinutes = 20
             },
             new Scenario
             {
@@ -659,7 +794,11 @@ public static class DbInitializer
                 Difficulty = "Advanced",
                 Seed = 12347,
                 InitialStateJson = "{\"position\":\"final\",\"aircraft\":\"VH-OQA\",\"type\":\"A380\",\"origin\":\"EGLL\"}",
-                RubricJson = "{\"approach_compliance\":20,\"landing_clearance\":15,\"taxi_after_landing\":10}"
+                RubricJson = "{\"approach_compliance\":20,\"landing_clearance\":15,\"taxi_after_landing\":10}",
+                FlightRules = "IFR",
+                PilotType = "Airline",
+                OperationType = "Cross-Country",
+                EstimatedDurationMinutes = 25
             },
 
             // Sydney scenarios
@@ -671,7 +810,11 @@ public static class DbInitializer
                 Difficulty = "Advanced",
                 Seed = 22345,
                 InitialStateJson = "{\"position\":\"approach\",\"aircraft\":\"VH-BBA\",\"type\":\"B737\",\"runway\":\"16L\"}",
-                RubricJson = "{\"runway_assignment\":15,\"spacing_compliance\":20,\"go_around_procedures\":25}"
+                RubricJson = "{\"runway_assignment\":15,\"spacing_compliance\":20,\"go_around_procedures\":25}",
+                FlightRules = "IFR",
+                PilotType = "Commercial",
+                OperationType = "Instrument Approach",
+                EstimatedDurationMinutes = 20
             },
 
             // Brisbane scenarios
@@ -683,7 +826,12 @@ public static class DbInitializer
                 Difficulty = "Intermediate",
                 Seed = 32345,
                 InitialStateJson = "{\"position\":\"gate\",\"aircraft\":\"VH-YQS\",\"type\":\"DHC8\",\"weather\":\"thunderstorms\"}",
-                RubricJson = "{\"weather_assessment\":20,\"alternate_procedures\":15,\"safety_considerations\":25}"
+                RubricJson = "{\"weather_assessment\":20,\"alternate_procedures\":15,\"safety_considerations\":25}",
+                FlightRules = "IFR",
+                PilotType = "Commercial",
+                OperationType = "Cross-Country",
+                WeatherConditions = "Severe",
+                EstimatedDurationMinutes = 25
             },
 
             // Training scenarios for GA aircraft
@@ -695,10 +843,14 @@ public static class DbInitializer
                 Difficulty = "Basic",
                 Seed = 42345,
                 InitialStateJson = "{\"position\":\"downwind\",\"aircraft\":\"VH-CTF\",\"type\":\"C172\",\"training\":true}",
-                RubricJson = "{\"pattern_compliance\":15,\"radio_discipline\":10,\"safety_awareness\":20}"
+                RubricJson = "{\"pattern_compliance\":15,\"radio_discipline\":10,\"safety_awareness\":20}",
+                FlightRules = "VFR",
+                PilotType = "Training",
+                OperationType = "Pattern Work",
+                EstimatedDurationMinutes = 15
             },
 
-            // GA Scenarios at Moorabbin
+            // GA Scenarios at Moorabbin - Using ScenarioWorkbookV2 format
             new Scenario
             {
                 Name = "First Solo at Moorabbin",
@@ -706,8 +858,83 @@ public static class DbInitializer
                 Kind = "pattern",
                 Difficulty = "Basic",
                 Seed = 52345,
-                InitialStateJson = "{\"position\":\"apron\",\"aircraft\":\"VH-ABC\",\"type\":\"C172\",\"instructor\":false}",
-                RubricJson = "{\"radio_discipline\":15,\"pattern_work\":20,\"emergency_procedures\":10}"
+                InitialStateJson = @"{
+                    ""meta"": {
+                        ""id"": ""ymmb_first_solo"",
+                        ""version"": ""2.0"",
+                        ""author"": ""TrainMeATC System""
+                    },
+                    ""inputs"": {
+                        ""icao"": ""YMMB"",
+                        ""aircraft"": ""C172"",
+                        ""variability"": 0.3,
+                        ""load"": 0.2
+                    },
+                    ""context_resolved"": {
+                        ""airport"": {
+                            ""icao"": ""YMMB"",
+                            ""name"": ""Moorabbin Airport"",
+                            ""tower_active"": true,
+                            ""tower_mhz"": 118.1,
+                            ""ground_mhz"": 121.7
+                        },
+                        ""runway_in_use"": ""17L"",
+                        ""weather_si"": {},
+                        ""traffic_snapshot"": {
+                            ""density"": ""light"",
+                            ""actors"": [],
+                            ""conflicts"": []
+                        }
+                    },
+                    ""phases"": [
+                        {
+                            ""id"": ""taxi_request"",
+                            ""name"": ""Taxi for Circuits"",
+                            ""primary_freq_mhz"": 121.7,
+                            ""pilot_cue"": ""Request taxi for circuits"",
+                            ""controller_policy"": ""Issue taxi clearance to holding point"",
+                            ""expected_readback"": [""CALLSIGN"", ""TAXI_ROUTE"", ""HOLDING_POINT""],
+                            ""required_components"": [""CALLSIGN"", ""LOCATION"", ""INTENTIONS"", ""ATIS""],
+                            ""responder_map"": {
+                                ""default"": ""ATC""
+                            },
+                            ""next_state"": {
+                                ""phase_id"": ""lineup_request""
+                            },
+                            ""branches"": []
+                        },
+                        {
+                            ""id"": ""lineup_request"",
+                            ""name"": ""Request Lineup"",
+                            ""primary_freq_mhz"": 118.1,
+                            ""pilot_cue"": ""Request lineup for circuits"",
+                            ""controller_policy"": ""Clear for takeoff or line up and wait"",
+                            ""expected_readback"": [""CALLSIGN"", ""CLEARED_TAKEOFF"", ""RUNWAY""],
+                            ""required_components"": [""CALLSIGN"", ""READY""],
+                            ""responder_map"": {
+                                ""default"": ""ATC""
+                            },
+                            ""next_state"": {
+                                ""phase_id"": ""end""
+                            },
+                            ""branches"": []
+                        }
+                    ],
+                    ""rubric"": {
+                        ""readback_policy"": {
+                            ""mandatory_components"": [""CALLSIGN"", ""RUNWAY""],
+                            ""block_on_missing"": [""RUNWAY""]
+                        }
+                    },
+                    ""completion"": {
+                        ""end_phase_id"": ""end""
+                    }
+                }",
+                RubricJson = "{\"radio_discipline\":15,\"pattern_work\":20,\"emergency_procedures\":10}",
+                FlightRules = "VFR",
+                PilotType = "Training",
+                OperationType = "Pattern Work",
+                EstimatedDurationMinutes = 15
             },
             new Scenario
             {
@@ -717,7 +944,11 @@ public static class DbInitializer
                 Difficulty = "Intermediate",
                 Seed = 52346,
                 InitialStateJson = "{\"position\":\"outside_cta\",\"aircraft\":\"VH-DEF\",\"type\":\"C182\",\"destination\":\"YSSY\"}",
-                RubricJson = "{\"clearance_requests\":20,\"cta_compliance\":25,\"navigation\":15}"
+                RubricJson = "{\"clearance_requests\":20,\"cta_compliance\":25,\"navigation\":15}",
+                FlightRules = "VFR",
+                PilotType = "Private",
+                OperationType = "Cross-Country",
+                EstimatedDurationMinutes = 30
             },
 
             // GA Scenarios at Bankstown
@@ -729,7 +960,12 @@ public static class DbInitializer
                 Difficulty = "Intermediate",
                 Seed = 62345,
                 InitialStateJson = "{\"position\":\"gate\",\"aircraft\":\"VH-GHI\",\"type\":\"PA28\",\"busy_traffic\":true}",
-                RubricJson = "{\"traffic_awareness\":20,\"taxi_compliance\":15,\"radio_congestion_management\":20}"
+                RubricJson = "{\"traffic_awareness\":20,\"taxi_compliance\":15,\"radio_congestion_management\":20}",
+                FlightRules = "VFR",
+                PilotType = "Private",
+                OperationType = "Training",
+                TrafficDensity = "Heavy",
+                EstimatedDurationMinutes = 15
             },
             new Scenario
             {
@@ -739,7 +975,11 @@ public static class DbInitializer
                 Difficulty = "Basic",
                 Seed = 62346,
                 InitialStateJson = "{\"position\":\"runup\",\"aircraft\":\"VH-JKL\",\"type\":\"C172\",\"nav_exercise\":true}",
-                RubricJson = "{\"departure_procedures\":15,\"nav_awareness\":20,\"frequency_changes\":10}"
+                RubricJson = "{\"departure_procedures\":15,\"nav_awareness\":20,\"frequency_changes\":10}",
+                FlightRules = "VFR",
+                PilotType = "Training",
+                OperationType = "Cross-Country",
+                EstimatedDurationMinutes = 25
             },
 
             // GA Scenarios at Archerfield
@@ -751,7 +991,11 @@ public static class DbInitializer
                 Difficulty = "Advanced",
                 Seed = 72345,
                 InitialStateJson = "{\"position\":\"holding_point\",\"aircraft\":\"VH-MNO\",\"type\":\"C210\",\"formation\":2}",
-                RubricJson = "{\"formation_procedures\":25,\"separation_awareness\":20,\"emergency_breakup\":20}"
+                RubricJson = "{\"formation_procedures\":25,\"separation_awareness\":20,\"emergency_breakup\":20}",
+                FlightRules = "VFR",
+                PilotType = "Private",
+                OperationType = "Training",
+                EstimatedDurationMinutes = 20
             },
             new Scenario
             {
@@ -761,7 +1005,11 @@ public static class DbInitializer
                 Difficulty = "Intermediate",
                 Seed = 72346,
                 InitialStateJson = "{\"position\":\"downwind\",\"aircraft\":\"VH-PQR\",\"type\":\"C182\",\"night\":true}",
-                RubricJson = "{\"night_procedures\":20,\"lighting_compliance\":15,\"safety_awareness\":25}"
+                RubricJson = "{\"night_procedures\":20,\"lighting_compliance\":15,\"safety_awareness\":25}",
+                FlightRules = "VFR",
+                PilotType = "Training",
+                OperationType = "Pattern Work",
+                EstimatedDurationMinutes = 20
             },
 
             // GA Scenarios at Jandakot
@@ -773,7 +1021,11 @@ public static class DbInitializer
                 Difficulty = "Intermediate",
                 Seed = 82345,
                 InitialStateJson = "{\"position\":\"apron\",\"aircraft\":\"VH-STU\",\"type\":\"PA44\",\"multi_engine\":true}",
-                RubricJson = "{\"engine_procedures\":20,\"emergency_handling\":25,\"multi_engine_ops\":20}"
+                RubricJson = "{\"engine_procedures\":20,\"emergency_handling\":25,\"multi_engine_ops\":20}",
+                FlightRules = "VFR",
+                PilotType = "Commercial",
+                OperationType = "Training",
+                EstimatedDurationMinutes = 30
             },
             new Scenario
             {
@@ -783,7 +1035,12 @@ public static class DbInitializer
                 Difficulty = "Intermediate",
                 Seed = 82346,
                 InitialStateJson = "{\"position\":\"final\",\"aircraft\":\"VH-VWX\",\"type\":\"C172\",\"wind\":\"25015G25KT\"}",
-                RubricJson = "{\"crosswind_technique\":25,\"go_around_decision\":20,\"weather_assessment\":15}"
+                RubricJson = "{\"crosswind_technique\":25,\"go_around_decision\":20,\"weather_assessment\":15}",
+                FlightRules = "VFR",
+                PilotType = "Training",
+                OperationType = "Pattern Work",
+                WeatherConditions = "Marginal",
+                EstimatedDurationMinutes = 15
             },
 
             // GA Scenarios at Camden
@@ -795,7 +1052,11 @@ public static class DbInitializer
                 Difficulty = "Basic",
                 Seed = 92345,
                 InitialStateJson = "{\"position\":\"grass_strip\",\"aircraft\":\"VH-YZA\",\"type\":\"TIGR\",\"tailwheel\":true}",
-                RubricJson = "{\"tailwheel_ops\":20,\"grass_strip_awareness\":15,\"heritage_procedures\":10}"
+                RubricJson = "{\"tailwheel_ops\":20,\"grass_strip_awareness\":15,\"heritage_procedures\":10}",
+                FlightRules = "VFR",
+                PilotType = "Private",
+                OperationType = "Training",
+                EstimatedDurationMinutes = 20
             },
 
             // GA Scenarios at Parafield
@@ -807,7 +1068,11 @@ public static class DbInitializer
                 Difficulty = "Basic",
                 Seed = 102345,
                 InitialStateJson = "{\"position\":\"upwind\",\"aircraft\":\"VH-BCD\",\"type\":\"C152\",\"student\":true}",
-                RubricJson = "{\"circuit_procedures\":15,\"student_guidance\":20,\"safety_oversight\":15}"
+                RubricJson = "{\"circuit_procedures\":15,\"student_guidance\":20,\"safety_oversight\":15}",
+                FlightRules = "VFR",
+                PilotType = "Training",
+                OperationType = "Pattern Work",
+                EstimatedDurationMinutes = 15
             },
 
             // TAF Interpretation Training Scenarios
@@ -819,7 +1084,11 @@ public static class DbInitializer
                 Difficulty = "Intermediate",
                 Seed = 110001,
                 InitialStateJson = "{\"position\":\"briefing\",\"aircraft\":\"VH-TAF\",\"type\":\"C172\",\"weather_brief\":true}",
-                RubricJson = "{\"taf_reading\":25,\"weather_decision\":20,\"alternate_planning\":15,\"fuel_considerations\":10}"
+                RubricJson = "{\"taf_reading\":25,\"weather_decision\":20,\"alternate_planning\":15,\"fuel_considerations\":10}",
+                FlightRules = "VFR",
+                PilotType = "Private",
+                OperationType = "Training",
+                EstimatedDurationMinutes = 10
             },
             new Scenario
             {
@@ -829,7 +1098,11 @@ public static class DbInitializer
                 Difficulty = "Advanced",
                 Seed = 110002,
                 InitialStateJson = "{\"position\":\"briefing\",\"aircraft\":\"VH-WTH\",\"type\":\"B737\",\"coastal_weather\":true}",
-                RubricJson = "{\"complex_taf\":30,\"trend_analysis\":25,\"decision_making\":20,\"risk_assessment\":15}"
+                RubricJson = "{\"complex_taf\":30,\"trend_analysis\":25,\"decision_making\":20,\"risk_assessment\":15}",
+                FlightRules = "IFR",
+                PilotType = "Commercial",
+                OperationType = "Training",
+                EstimatedDurationMinutes = 15
             },
             new Scenario
             {
@@ -839,7 +1112,12 @@ public static class DbInitializer
                 Difficulty = "Advanced",
                 Seed = 110003,
                 InitialStateJson = "{\"position\":\"briefing\",\"aircraft\":\"VH-TRP\",\"type\":\"DHC8\",\"tropical_weather\":true}",
-                RubricJson = "{\"tropical_taf\":30,\"thunderstorm_timing\":25,\"safety_margins\":20,\"alternate_requirements\":15}"
+                RubricJson = "{\"tropical_taf\":30,\"thunderstorm_timing\":25,\"safety_margins\":20,\"alternate_requirements\":15}",
+                FlightRules = "IFR",
+                PilotType = "Commercial",
+                OperationType = "Training",
+                WeatherConditions = "Severe",
+                EstimatedDurationMinutes = 15
             },
 
             // Aviation Alphabet & Phraseology Training
@@ -851,7 +1129,11 @@ public static class DbInitializer
                 Difficulty = "Basic",
                 Seed = 120001,
                 InitialStateJson = "{\"position\":\"ground\",\"aircraft\":\"VH-PHO\",\"type\":\"C172\",\"alphabet_drill\":true}",
-                RubricJson = "{\"phonetic_accuracy\":25,\"clarity\":20,\"speed\":15,\"consistency\":10}"
+                RubricJson = "{\"phonetic_accuracy\":25,\"clarity\":20,\"speed\":15,\"consistency\":10}",
+                FlightRules = "VFR",
+                PilotType = "Training",
+                OperationType = "Training",
+                EstimatedDurationMinutes = 10
             },
             new Scenario
             {
@@ -861,7 +1143,11 @@ public static class DbInitializer
                 Difficulty = "Intermediate",
                 Seed = 120002,
                 InitialStateJson = "{\"position\":\"various\",\"aircraft\":\"VH-STD\",\"type\":\"PA28\",\"phraseology_drill\":true}",
-                RubricJson = "{\"standard_phrases\":25,\"appropriate_usage\":20,\"conciseness\":15,\"professional_delivery\":15}"
+                RubricJson = "{\"standard_phrases\":25,\"appropriate_usage\":20,\"conciseness\":15,\"professional_delivery\":15}",
+                FlightRules = "VFR",
+                PilotType = "Private",
+                OperationType = "Training",
+                EstimatedDurationMinutes = 15
             },
             new Scenario
             {
@@ -871,7 +1157,11 @@ public static class DbInitializer
                 Difficulty = "Advanced",
                 Seed = 120003,
                 InitialStateJson = "{\"position\":\"international_gate\",\"aircraft\":\"VH-INT\",\"type\":\"A330\",\"international\":true}",
-                RubricJson = "{\"icao_phraseology\":30,\"international_procedures\":25,\"emergency_phrases\":20,\"non_native_clarity\":15}"
+                RubricJson = "{\"icao_phraseology\":30,\"international_procedures\":25,\"emergency_phrases\":20,\"non_native_clarity\":15}",
+                FlightRules = "IFR",
+                PilotType = "Airline",
+                OperationType = "Training",
+                EstimatedDurationMinutes = 20
             },
 
             // Controlled Aerodrome Operations
@@ -883,7 +1173,11 @@ public static class DbInitializer
                 Difficulty = "Intermediate",
                 Seed = 130001,
                 InitialStateJson = "{\"position\":\"holding_point\",\"aircraft\":\"VH-CTL\",\"type\":\"C182\",\"controlled\":true}",
-                RubricJson = "{\"tower_communication\":25,\"clearance_compliance\":20,\"separation_awareness\":15,\"emergency_procedures\":15}"
+                RubricJson = "{\"tower_communication\":25,\"clearance_compliance\":20,\"separation_awareness\":15,\"emergency_procedures\":15}",
+                FlightRules = "VFR",
+                PilotType = "Private",
+                OperationType = "Training",
+                EstimatedDurationMinutes = 20
             },
             new Scenario
             {
@@ -893,7 +1187,12 @@ public static class DbInitializer
                 Difficulty = "Advanced",
                 Seed = 130002,
                 InitialStateJson = "{\"position\":\"approach\",\"aircraft\":\"VH-CMP\",\"type\":\"A320\",\"complex_airspace\":true}",
-                RubricJson = "{\"complex_clearances\":30,\"traffic_integration\":25,\"priority_handling\":20,\"stress_management\":15}"
+                RubricJson = "{\"complex_clearances\":30,\"traffic_integration\":25,\"priority_handling\":20,\"stress_management\":15}",
+                FlightRules = "IFR",
+                PilotType = "Commercial",
+                OperationType = "Instrument Approach",
+                TrafficDensity = "Heavy",
+                EstimatedDurationMinutes = 25
             },
             new Scenario
             {
@@ -903,7 +1202,11 @@ public static class DbInitializer
                 Difficulty = "Intermediate",
                 Seed = 130003,
                 InitialStateJson = "{\"position\":\"circuit\",\"aircraft\":\"VH-GLD\",\"type\":\"C172\",\"class_d\":true}",
-                RubricJson = "{\"class_d_procedures\":20,\"mixed_traffic\":20,\"position_reporting\":15,\"runway_management\":15}"
+                RubricJson = "{\"class_d_procedures\":20,\"mixed_traffic\":20,\"position_reporting\":15,\"runway_management\":15}",
+                FlightRules = "VFR",
+                PilotType = "Private",
+                OperationType = "Pattern Work",
+                EstimatedDurationMinutes = 20
             },
             new Scenario
             {
@@ -913,7 +1216,11 @@ public static class DbInitializer
                 Difficulty = "Advanced",
                 Seed = 130004,
                 InitialStateJson = "{\"position\":\"cta_boundary\",\"aircraft\":\"VH-CTA\",\"type\":\"PA44\",\"transition\":true}",
-                RubricJson = "{\"clearance_requests\":25,\"altitude_management\":20,\"frequency_changes\":15,\"navigation_accuracy\":20}"
+                RubricJson = "{\"clearance_requests\":25,\"altitude_management\":20,\"frequency_changes\":15,\"navigation_accuracy\":20}",
+                FlightRules = "VFR",
+                PilotType = "Commercial",
+                OperationType = "Cross-Country",
+                EstimatedDurationMinutes = 30
             },
 
             // Uncontrolled Aerodrome Operations
@@ -925,7 +1232,11 @@ public static class DbInitializer
                 Difficulty = "Basic",
                 Seed = 140001,
                 InitialStateJson = "{\"position\":\"10nm_out\",\"aircraft\":\"VH-CTF\",\"type\":\"C172\",\"ctaf\":true}",
-                RubricJson = "{\"ctaf_procedures\":25,\"position_reports\":20,\"traffic_awareness\":20,\"self_separation\":15}"
+                RubricJson = "{\"ctaf_procedures\":25,\"position_reports\":20,\"traffic_awareness\":20,\"self_separation\":15}",
+                FlightRules = "VFR",
+                PilotType = "Private",
+                OperationType = "Training",
+                EstimatedDurationMinutes = 20
             },
             new Scenario
             {
@@ -935,7 +1246,11 @@ public static class DbInitializer
                 Difficulty = "Intermediate",
                 Seed = 140002,
                 InitialStateJson = "{\"position\":\"overhead\",\"aircraft\":\"VH-NTW\",\"type\":\"PA28\",\"non_towered\":true}",
-                RubricJson = "{\"standard_procedures\":20,\"traffic_pattern\":20,\"radio_discipline\":15,\"safety_awareness\":25}"
+                RubricJson = "{\"standard_procedures\":20,\"traffic_pattern\":20,\"radio_discipline\":15,\"safety_awareness\":25}",
+                FlightRules = "VFR",
+                PilotType = "Private",
+                OperationType = "Training",
+                EstimatedDurationMinutes = 25
             },
             new Scenario
             {
@@ -945,7 +1260,11 @@ public static class DbInitializer
                 Difficulty = "Advanced", 
                 Seed = 140003,
                 InitialStateJson = "{\"position\":\"approach\",\"aircraft\":\"VH-GRS\",\"type\":\"C180\",\"grass_strip\":true}",
-                RubricJson = "{\"grass_procedures\":25,\"wind_assessment\":20,\"surface_conditions\":20,\"precautionary_approach\":15}"
+                RubricJson = "{\"grass_procedures\":25,\"wind_assessment\":20,\"surface_conditions\":20,\"precautionary_approach\":15}",
+                FlightRules = "VFR",
+                PilotType = "Private",
+                OperationType = "Training",
+                EstimatedDurationMinutes = 20
             },
             new Scenario
             {
@@ -955,7 +1274,11 @@ public static class DbInitializer
                 Difficulty = "Advanced",
                 Seed = 140004, 
                 InitialStateJson = "{\"position\":\"remote_approach\",\"aircraft\":\"VH-RMT\",\"type\":\"C210\",\"remote\":true}",
-                RubricJson = "{\"remote_procedures\":25,\"fuel_planning\":20,\"weather_assessment\":20,\"emergency_preparedness\":20}"
+                RubricJson = "{\"remote_procedures\":25,\"fuel_planning\":20,\"weather_assessment\":20,\"emergency_preparedness\":20}",
+                FlightRules = "VFR",
+                PilotType = "Private",
+                OperationType = "Cross-Country",
+                EstimatedDurationMinutes = 35
             },
 
             // Mixed Training Scenarios
@@ -967,7 +1290,11 @@ public static class DbInitializer
                 Difficulty = "Advanced",
                 Seed = 150001,
                 InitialStateJson = "{\"position\":\"departure\",\"aircraft\":\"VH-MIX\",\"type\":\"C182\",\"transition\":true}",
-                RubricJson = "{\"procedure_changes\":25,\"frequency_management\":20,\"navigation_transition\":20,\"communication_adaptation\":15}"
+                RubricJson = "{\"procedure_changes\":25,\"frequency_management\":20,\"navigation_transition\":20,\"communication_adaptation\":15}",
+                FlightRules = "Mixed",
+                PilotType = "Private",
+                OperationType = "Cross-Country",
+                EstimatedDurationMinutes = 40
             },
             new Scenario
             {
@@ -977,7 +1304,11 @@ public static class DbInitializer
                 Difficulty = "Advanced",
                 Seed = 150002,
                 InitialStateJson = "{\"position\":\"emergency\",\"aircraft\":\"VH-EMG\",\"type\":\"B737\",\"emergency\":true}",
-                RubricJson = "{\"emergency_phraseology\":30,\"urgency_communication\":25,\"priority_handling\":20,\"stress_management\":20}"
+                RubricJson = "{\"emergency_phraseology\":30,\"urgency_communication\":25,\"priority_handling\":20,\"stress_management\":20}",
+                FlightRules = "IFR",
+                PilotType = "Commercial",
+                OperationType = "Emergency",
+                EstimatedDurationMinutes = 30
             }
         };
 

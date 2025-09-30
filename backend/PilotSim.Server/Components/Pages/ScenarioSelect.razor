@@ -104,6 +104,10 @@
                                     <h6 class="mb-0 fw-bold">@scenario.Name</h6>
                                     <div class="scenario-badges">
                                         <span class="badge bg-@(GetFlightRulesBadgeColor(scenario.FlightRules))">@scenario.FlightRules</span>
+                                        @if (IsWorkbookScenario(scenario))
+                                        {
+                                            <span class="badge bg-success ms-1" title="Uses ScenarioWorkbookV2 format"><i class="bi bi-book-fill"></i> V2</span>
+                                        }
                                     </div>
                                 </div>
                                 <div class="card-body">
@@ -353,6 +357,23 @@
             "MIXED" => "warning",
             _ => "secondary"
         };
+    }
+    
+    private bool IsWorkbookScenario(Scenario scenario)
+    {
+        if (string.IsNullOrEmpty(scenario.InitialStateJson))
+            return false;
+            
+        try
+        {
+            // Check if the JSON contains "meta" or "phases" which are key indicators of ScenarioWorkbookV2
+            return scenario.InitialStateJson.Contains("\"meta\"") && 
+                   scenario.InitialStateJson.Contains("\"phases\"");
+        }
+        catch
+        {
+            return false;
+        }
     }
     
     private void GoBack()
