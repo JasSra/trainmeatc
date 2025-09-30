@@ -49,7 +49,81 @@ public class OpenAiSttService : ISttService
 
 // Old implementations removed - now using OpenAiInstructorServiceV2 and OpenAiTrafficAgentService from TurnService.cs
 
+// Dedicated ATC service for tower-controlled operations
+public class OpenAiAtcService : IAtcService
+{
+    private readonly OpenAIClient _client;
+    private readonly ILogger<OpenAiAtcService> _logger;
+
+    private const string SystemPrompt = """
+You are "ATC Controller" at an Australian controlled aerodrome (tower active).
+Use ICAO/CASA-compliant phraseology. Return JSON only:
+{
+ "transmission": "...",
+ "expectedReadback": ["CALLSIGN", "CLEARANCE_KEY_ELEMENTS"],
+ "nextState": {"phase":"...", "cleared":true, ...},
+ "holdShort": false,
+ "ttsTone":"professional"
+}
+Rules:
+1) Never imply runway clearance without explicit instruction.
+2) Require full readback for: runway entry/crossing, takeoff, landing, hold short.
+3) Use ft/kt/NM in transmission text; data uses SI internally.
+4) Maintain professional, concise Australian ATC style.
+5) Match controller persona (concise/normal/high_workload) based on load.
+""";
+
+    public OpenAiAtcService(OpenAIClient client, ILogger<OpenAiAtcService> logger)
+    {
+        _client = client;
+        _logger = logger;
+    }
+
+    public async Task<AtcReply> NextAsync(string transcript, object state, Difficulty difficulty, Load load, CancellationToken ct)
+    {
+        try
+        {
+            var chat = _client.GetChatClient("gpt-4o-mini");
+            var stateJson = JsonSerializer.Serialize(state);
+            
+            var systemMsg = new SystemChatMessage(SystemPrompt);
+            var userMsg = new UserChatMessage($"PILOT:\"{transcript}\"\nSTATE:\n{stateJson}\nLOAD: traffic={load.TrafficDensity:F2}, persona={load.ControllerPersona}");
+
+            var messages = new List<ChatMessage> { systemMsg, userMsg };
+            var response = await chat.CompleteChatAsync(messages, cancellationToken: ct);
+            
+            var content = response.Value.Content?[0]?.Text ?? "{}";
+            var json = JsonSerializer.Deserialize<JsonElement>(content);
+
+            string transmission = json.TryGetProperty("transmission", out var tx) ? tx.GetString() ?? "" : "";
+            var expectedReadback = json.TryGetProperty("expectedReadback", out var rb) && rb.ValueKind == JsonValueKind.Array
+                ? rb.EnumerateArray().Select(x => x.GetString() ?? "").ToList()
+                : new List<string>();
+            var nextState = json.TryGetProperty("nextState", out var ns) 
+                ? JsonSerializer.Deserialize<object>(ns.GetRawText())
+                : state;
+            bool? holdShort = json.TryGetProperty("holdShort", out var hs) ? hs.GetBoolean() : null;
+            string? ttsTone = json.TryGetProperty("ttsTone", out var tt) ? tt.GetString() : "professional";
+
+            return new AtcReply(transmission, expectedReadback, nextState, holdShort, ttsTone);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to generate ATC response");
+            return new AtcReply(
+                Transmission: "Say again, transmission unclear",
+                ExpectedReadback: new List<string>(),
+                NextState: state,
+                HoldShort: null,
+                TtsTone: "professional"
+            );
+        }
+    }
+}
+
 // Adapter to allow SimulationController to keep working with old API while using new ITrafficAgent
+// DEPRECATED: No longer used - OpenAiAtcService now handles tower-controlled operations directly
+// Kept for reference only, can be removed in future cleanup
 public class AtcServiceAdapter : IAtcService
 {
     private readonly PilotSim.Server.Services.ITrafficAgent _trafficAgent;
