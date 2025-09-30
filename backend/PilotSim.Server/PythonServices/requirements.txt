@@ -1,0 +1,7 @@
+# Coqui TTS dependencies
+TTS==0.22.0
+# Core dependencies (usually auto-installed with TTS)
+numpy>=1.22.0
+torch>=2.0.0
+scipy>=1.9.0
+soundfile>=0.12.1

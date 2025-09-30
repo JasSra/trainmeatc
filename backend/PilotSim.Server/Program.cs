@@ -53,7 +53,8 @@ builder.Services.AddSingleton(new OpenAIClient(builder.Configuration["OPENAI_API
 builder.Services.AddSingleton<ISttService, OpenAiSttService>();
 builder.Services.AddScoped<IInstructorService, OpenAiInstructorService>();
 builder.Services.AddScoped<IAtcService, OpenAiAtcService>();
-builder.Services.AddSingleton<ITtsService, OpenAiTtsService>();
+// Use Coqui TTS instead of OpenAI for text-to-speech (no API key required)
+builder.Services.AddSingleton<ITtsService, CoquiTtsService>();
 
 // Add API controllers
 builder.Services.AddControllers();
