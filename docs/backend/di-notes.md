@@ -1,11 +1,14 @@
 # Dependency Injection Notes
 
-Planned registrations (example):
+Current registrations:
 
 ```csharp
 builder.Services.AddSingleton<ISttService, OpenAiSttService>();
-builder.Services.AddScoped<IInstructorService, OpenAiInstructorService>();
-builder.Services.AddScoped<IAtcService, OpenAiAtcService>();
+builder.Services.AddScoped<IInstructorService, OpenAiInstructorServiceV2>();
+builder.Services.AddScoped<ITrafficAgent, OpenAiTrafficAgentService>();
+builder.Services.AddScoped<IResponderRouter, ResponderRouter>();
+builder.Services.AddScoped<ITurnService, TurnService>();
+builder.Services.AddScoped<IAtcService, AtcServiceAdapter>(); // Adapter for backward compatibility
 builder.Services.AddSingleton<ITtsService, OpenAiTtsService>();
 ```
 
