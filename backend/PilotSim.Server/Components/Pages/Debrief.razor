@@ -57,6 +57,44 @@
             </div>
         </div>
         
+        <!-- Session Outcome Banner (if workbook scenario) -->
+        @if (!string.IsNullOrEmpty(session.Outcome))
+        {
+            var outcomeClass = session.Outcome switch
+            {
+                "success" => "alert-success",
+                "fail_major" => "alert-danger",
+                "fail_minor" => "alert-warning",
+                _ => "alert-info"
+            };
+            var outcomeIcon = session.Outcome switch
+            {
+                "success" => "bi-check-circle-fill",
+                "fail_major" => "bi-x-circle-fill",
+                "fail_minor" => "bi-exclamation-triangle-fill",
+                _ => "bi-info-circle-fill"
+            };
+            var outcomeText = session.Outcome switch
+            {
+                "success" => "Session Completed Successfully",
+                "fail_major" => "Session Failed - Major Safety Violation",
+                "fail_minor" => "Session Failed - Performance Below Standard",
+                _ => session.Outcome
+            };
+            
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="alert @outcomeClass d-flex align-items-center" role="alert">
+                        <i class="bi @outcomeIcon fs-3 me-3"></i>
+                        <div>
+                            <h5 class="mb-1">@outcomeText</h5>
+                            <p class="mb-0 small">@GetOutcomeDescription(session.Outcome)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        
         <!-- Performance Overview Cards -->
         <div class="row mb-4">
             <div class="col-md-3">
@@ -161,6 +199,134 @@
                 </div>
             </div>
         </div>
+
+        <!-- Workbook-Specific Metrics (if ScenarioWorkbookV2) -->
+        @if (workbook != null)
+        {
+            <div class="row mb-4">
+                <!-- Coverage Metrics -->
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-check2-square me-2"></i>Readback Coverage</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span>Overall Coverage</span>
+                                    <strong>@GetAverageCoverage().ToString("P0")</strong>
+                                </div>
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar @GetCoverageColor(GetAverageCoverage())" 
+                                         style="width: @(GetAverageCoverage() * 100)%">
+                                        @GetAverageCoverage().ToString("P0")
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            @if (GetMissedComponents().Any())
+                            {
+                                <div class="mt-3">
+                                    <h6 class="text-warning">Frequently Missed Components:</h6>
+                                    <ul class="small">
+                                        @foreach (var missed in GetMissedComponents().Take(5))
+                                        {
+                                            <li>@missed.Code (@missed.Count times)</li>
+                                        }
+                                    </ul>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Safety Gates -->
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-shield-check me-2"></i>Safety Gates</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-2">
+                                <strong>Gates Triggered:</strong> @GetGatesTriggered()
+                            </div>
+                            <div class="mb-2">
+                                <strong>Safety Flags:</strong> @GetSafetyFlags()
+                            </div>
+                            
+                            @if (GetSafetyNotes().Any())
+                            {
+                                <div class="mt-3">
+                                    <h6 class="text-danger">Safety Notes:</h6>
+                                    <ul class="small">
+                                        @foreach (var note in GetSafetyNotes())
+                                        {
+                                            <li class="text-danger">@note</li>
+                                        }
+                                    </ul>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Phase Progression -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-signpost-2 me-2"></i>Phase Progression</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex flex-wrap gap-2 mb-3">
+                                @foreach (var phase in workbook.Phases)
+                                {
+                                    var wasCompleted = WasPhaseCompleted(phase.Id);
+                                    <div class="badge @(wasCompleted ? "bg-success" : "bg-secondary") fs-6 py-2 px-3">
+                                        @phase.Id
+                                        @if (wasCompleted)
+                                        {
+                                            <i class="bi bi-check-circle ms-1"></i>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                            
+                            <div class="small text-muted">
+                                Completed @GetCompletedPhases().Count() of @workbook.Phases.Count phases
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Exemplar Readbacks (from Debrief spec if available) -->
+            @if (workbook.Debrief?.ExemplarReadbacks?.Any() == true)
+            {
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="bi bi-star me-2"></i>Exemplar Readbacks</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted mb-3">Examples of correct phraseology for this scenario:</p>
+                                <div class="list-group">
+                                    @foreach (var exemplar in workbook.Debrief.ExemplarReadbacks)
+                                    {
+                                        <div class="list-group-item">
+                                            <i class="bi bi-quote text-success me-2"></i>
+                                            <span class="font-monospace">@exemplar</span>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
 
         <!-- Performance Metrics -->
         <div class="row mb-4">
@@ -447,6 +613,7 @@
     private List<Turn> turns = new();
     private SummaryResponse? summary;
     private bool showPerformanceChart = false;
+    private ScenarioWorkbookV2? workbook;
     
     protected override async Task OnInitializedAsync()
     {
@@ -454,6 +621,19 @@
         session = await DbContext.Sessions
             .Include(s => s.Scenario)
             .FirstOrDefaultAsync(s => s.Id == SessionId);
+
+        // Try to load workbook from scenario
+        if (session?.Scenario?.InitialStateJson != null)
+        {
+            try
+            {
+                workbook = JsonSerializer.Deserialize<ScenarioWorkbookV2>(session.Scenario.InitialStateJson);
+            }
+            catch (JsonException ex)
+            {
+                Console.WriteLine($"Failed to deserialize workbook: {ex.Message}");
+            }
+        }
 
         try
         {
@@ -967,6 +1147,142 @@
     private void GoHome()
     {
         Navigation.NavigateTo("/");
+    }
+    
+    // Workbook-specific helper methods
+    private string GetOutcomeDescription(string? outcome)
+    {
+        return outcome switch
+        {
+            "success" => "All completion criteria met. Excellent performance!",
+            "fail_major" => "Critical safety violation or major procedural error detected.",
+            "fail_minor" => "Performance did not meet minimum standards. Review feedback below.",
+            _ => ""
+        };
+    }
+    
+    private double GetAverageCoverage()
+    {
+        if (summary?.Turns == null || !summary.Turns.Any()) return 0;
+        
+        var coverages = new List<double>();
+        foreach (var turn in summary.Turns)
+        {
+            if (turn.Verdict != null && turn.Verdict.Components != null)
+            {
+                var total = turn.Verdict.Components.Count;
+                if (total > 0)
+                {
+                    var correct = turn.Verdict.Components.Count(c => c.Score >= 0.8);
+                    coverages.Add((double)correct / total);
+                }
+            }
+        }
+        
+        return coverages.Any() ? coverages.Average() : 0;
+    }
+    
+    private string GetCoverageColor(double coverage)
+    {
+        return coverage switch
+        {
+            >= 0.85 => "bg-success",
+            >= 0.70 => "bg-warning",
+            _ => "bg-danger"
+        };
+    }
+    
+    private List<(string Code, int Count)> GetMissedComponents()
+    {
+        if (summary?.ComponentFrequency == null) return new();
+        
+        return summary.ComponentFrequency
+            .Where(c => c.Category == "Omissions" || c.Code.Contains("MISS"))
+            .Select(c => (c.Code, c.Count))
+            .OrderByDescending(c => c.Count)
+            .ToList();
+    }
+    
+    private int GetGatesTriggered()
+    {
+        return turns.Count(t => t.Blocked);
+    }
+    
+    private int GetSafetyFlags()
+    {
+        if (summary?.Turns == null) return 0;
+        
+        return summary.Turns.Count(t => t.Verdict?.SafetyFlag == true);
+    }
+    
+    private List<string> GetSafetyNotes()
+    {
+        var notes = new List<string>();
+        
+        if (summary?.Turns == null) return notes;
+        
+        foreach (var turn in summary.Turns)
+        {
+            if (turn.Verdict?.SafetyFlag == true && !string.IsNullOrEmpty(turn.Verdict.BlockReason))
+            {
+                notes.Add($"Turn {turn.Idx}: {turn.Verdict.BlockReason}");
+            }
+            
+            var safetyCritical = turn.Components?
+                .Where(c => c.Category == "Safety" && c.Severity == "critical")
+                .ToList();
+                
+            if (safetyCritical?.Any() == true)
+            {
+                foreach (var comp in safetyCritical)
+                {
+                    if (!string.IsNullOrEmpty(comp.Detail))
+                    {
+                        notes.Add($"Turn {turn.Idx}: {comp.Detail}");
+                    }
+                }
+            }
+        }
+        
+        return notes.Distinct().ToList();
+    }
+    
+    private bool WasPhaseCompleted(string phaseId)
+    {
+        if (summary?.Turns == null) return false;
+        
+        // Check if any turn reached or passed this phase
+        foreach (var turn in summary.Turns)
+        {
+            if (turn.AtcJson != null)
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(turn.AtcJson);
+                    if (doc.RootElement.TryGetProperty("nextState", out var nextState))
+                    {
+                        var stateStr = nextState.ToString();
+                        if (stateStr.Contains($"\"phase\":\"{phaseId}\"") || 
+                            stateStr.Contains($"'phase':'{phaseId}'"))
+                        {
+                            return true;
+                        }
+                    }
+                }
+                catch { }
+            }
+        }
+        
+        return false;
+    }
+    
+    private IEnumerable<string> GetCompletedPhases()
+    {
+        if (workbook == null) return Enumerable.Empty<string>();
+        
+        return workbook.Phases
+            .Where(p => WasPhaseCompleted(p.Id))
+            .Select(p => p.Id);
     }
 
     // Summary DTOs
