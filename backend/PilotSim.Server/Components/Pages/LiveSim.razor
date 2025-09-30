@@ -5,6 +5,7 @@
 @using Microsoft.AspNetCore.SignalR.Client
 @using PilotSim.Data
 @using PilotSim.Data.Models
+@using PilotSim.Core
 @using System.Net.Http.Json
 @using System.Text.Json
 @using System.Linq
@@ -225,6 +226,28 @@
                             <div class="card h-100 shadow-sm">
                                 <div class="card-header py-2"><i class="bi bi-lightning-charge me-1"></i>Next Action</div>
                                 <div class="card-body small">
+                                    @if (isWorkbookScenario && currentPhase != null)
+                                    {
+                                        <div class="mb-2">
+                                            <strong class="text-primary">Phase:</strong> @currentPhase.Id
+                                            @if (!string.IsNullOrEmpty(currentPhase.Name))
+                                            {
+                                                <div class="text-muted small">@currentPhase.Name</div>
+                                            }
+                                        </div>
+                                        @if (currentPhase.RequiredComponents?.Any() == true)
+                                        {
+                                            <div class="mb-2">
+                                                <small class="text-muted">Required elements:</small>
+                                                <ul class="small ps-3 mb-0">
+                                                    @foreach (var req in currentPhase.RequiredComponents.Take(3))
+                                                    {
+                                                        <li>@req</li>
+                                                    }
+                                                </ul>
+                                            </div>
+                                        }
+                                    }
                                     @if (isRecording)
                                     {
                                         <div class="text-danger"><i class="bi bi-mic-fill me-1"></i>Transmit clearly...</div>
@@ -392,6 +415,99 @@
                             <small class="text-muted text-center">Use this to end your training session and view your debrief.</small>
                         </div>
                     </div>
+                    
+                    @if (isWorkbookScenario && workbook != null)
+                    {
+                        <div class="aviation-panel">
+                            <div class="aviation-panel-header">
+                                <i class="bi bi-book me-1"></i>Scenario Workbook
+                                <button class="btn btn-sm btn-outline-secondary ms-auto" @onclick="@(() => showWorkbookPanel = !showWorkbookPanel)">
+                                    <i class="bi bi-@(showWorkbookPanel ? "chevron-up" : "chevron-down")"></i>
+                                </button>
+                            </div>
+                            @if (showWorkbookPanel)
+                            {
+                                <div class="p-3 small">
+                                    <div class="mb-2">
+                                        <strong>Scenario ID:</strong> @workbook.Meta?.Id
+                                        <span class="ms-2 text-muted">v@(workbook.Meta?.Version ?? "2.0")</span>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <strong>Phases (@workbook.Phases.Count):</strong>
+                                        <div class="mt-2">
+                                            @foreach (var phase in workbook.Phases)
+                                            {
+                                                <div class="@(phase.Id == currentPhaseId ? "badge bg-primary" : "badge bg-secondary") me-1 mb-1">
+                                                    @phase.Id
+                                                    @if (phase.Id == currentPhaseId)
+                                                    {
+                                                        <i class="bi bi-check-circle ms-1"></i>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                    
+                                    @if (currentPhase != null)
+                                    {
+                                        <div class="mb-2">
+                                            <strong>Current Phase Details:</strong>
+                                            <div class="mt-1 ps-2">
+                                                <div><strong>ID:</strong> @currentPhase.Id</div>
+                                                @if (!string.IsNullOrEmpty(currentPhase.Name))
+                                                {
+                                                    <div><strong>Name:</strong> @currentPhase.Name</div>
+                                                }
+                                                @if (currentPhase.PrimaryFreqMhz > 0)
+                                                {
+                                                    <div><strong>Freq:</strong> @currentPhase.PrimaryFreqMhz MHz</div>
+                                                }
+                                                @if (currentPhase.RequiredComponents?.Any() == true)
+                                                {
+                                                    <div><strong>Required:</strong> @string.Join(", ", currentPhase.RequiredComponents)</div>
+                                                }
+                                                @if (currentPhase.Branches?.Any() == true)
+                                                {
+                                                    <div><strong>Branches:</strong> @currentPhase.Branches.Count available</div>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                    
+                                    @if (workbook.ContextResolved?.Airport != null)
+                                    {
+                                        <div class="mb-2">
+                                            <strong>Airport Context:</strong>
+                                            <div class="mt-1 ps-2">
+                                                <div>@workbook.ContextResolved.Airport.Icao - @workbook.ContextResolved.Airport.Name</div>
+                                                <div><strong>Tower:</strong> @(workbook.ContextResolved.Airport.TowerActive ? "Active" : "Inactive")</div>
+                                                @if (!string.IsNullOrEmpty(workbook.ContextResolved.RunwayInUse))
+                                                {
+                                                    <div><strong>Runway:</strong> @workbook.ContextResolved.RunwayInUse</div>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                    
+                                    @if (workbook.ContextResolved?.TrafficSnapshot != null)
+                                    {
+                                        <div class="mb-2">
+                                            <strong>Traffic:</strong>
+                                            <div class="mt-1 ps-2">
+                                                <div><strong>Density:</strong> @workbook.ContextResolved.TrafficSnapshot.Density</div>
+                                                <div><strong>Aircraft:</strong> @workbook.ContextResolved.TrafficSnapshot.Actors.Count</div>
+                                                @if (workbook.ContextResolved.TrafficSnapshot.Conflicts?.Any() == true)
+                                                {
+                                                    <div class="text-warning"><strong>Conflicts:</strong> @workbook.ContextResolved.TrafficSnapshot.Conflicts.Count</div>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
                 </div>
             </div>
         </div>
@@ -407,6 +523,12 @@
     private List<Turn> completedTurns = new();
     private PilotProfile? pilotProfile;
     private List<string> learningObjectives = new();
+    
+    // ScenarioWorkbookV2 support
+    private ScenarioWorkbookV2? workbook;
+    private PhaseSpec? currentPhase;
+    private string currentPhaseId = "initial";
+    private bool isWorkbookScenario = false;
 
     private HubConnection? hubConnection;
     private bool isRecording; private bool isBlocked; private string? blockReason;
@@ -419,11 +541,32 @@
     private string? microphoneTestMessage; private string? speakerTestMessage;
     private InstructorVerdictDto? latestVerdict; private bool isProcessingTurn; private bool isStartingSession;
     private DotNetObjectReference<LiveSim>? dotNetRef; private bool showBreakdown;
+    private bool showWorkbookPanel = false;
 
     protected override async Task OnInitializedAsync()
     {
         scenario = await DbContext.Scenarios.Include(s => s.Airport)!.ThenInclude(a => a!.Runways).FirstOrDefaultAsync(s => s.Id == ScenarioId);
         if (scenario == null){ Navigation.NavigateTo("/scenarios"); return; }
+        
+        // Load ScenarioWorkbookV2 if available
+        if (!string.IsNullOrEmpty(scenario.InitialStateJson))
+        {
+            try
+            {
+                workbook = JsonSerializer.Deserialize<ScenarioWorkbookV2>(scenario.InitialStateJson);
+                if (workbook?.Phases?.Any() == true)
+                {
+                    isWorkbookScenario = true;
+                    currentPhase = workbook.Phases.First();
+                    currentPhaseId = currentPhase.Id;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to parse workbook: {ex.Message}");
+            }
+        }
+        
         if (!string.IsNullOrWhiteSpace(scenario.LearningObjectives))
         {
             try { var arr = JsonDocument.Parse(scenario.LearningObjectives).RootElement; if (arr.ValueKind == JsonValueKind.Array) learningObjectives = arr.EnumerateArray().Select(e => e.GetString()).Where(s => !string.IsNullOrWhiteSpace(s))!.ToList(); } catch { }
@@ -511,7 +654,35 @@
                 latestVerdict = turnResult.Verdict; pendingScoreDelta = turnResult.Verdict.ScoreDelta; scoreDelta = pendingScoreDelta;
                 if (!string.IsNullOrWhiteSpace(turnResult.Verdict.BlockReason) && turnResult.Verdict.Critical?.Any() == true){ blockReason = turnResult.Verdict.BlockReason; isBlocked = true; } else { blockReason = null; isBlocked = false; }
             }
-            if (turnResult.AtcResponse != null) { lastAtcTransmission = turnResult.AtcResponse.Transmission; lastExpectedReadbacks = turnResult.AtcResponse.ExpectedReadback; }
+            if (turnResult.AtcResponse != null) 
+            { 
+                lastAtcTransmission = turnResult.AtcResponse.Transmission; 
+                lastExpectedReadbacks = turnResult.AtcResponse.ExpectedReadback; 
+                
+                // Update phase if workbook scenario and phase changed
+                if (isWorkbookScenario && turnResult.AtcResponse.NextState != null && workbook != null)
+                {
+                    try
+                    {
+                        var nextStateJson = JsonSerializer.Serialize(turnResult.AtcResponse.NextState);
+                        var nextState = JsonSerializer.Deserialize<JsonElement>(nextStateJson);
+                        if (nextState.TryGetProperty("phase", out var phaseElement))
+                        {
+                            var newPhaseId = phaseElement.GetString();
+                            if (!string.IsNullOrEmpty(newPhaseId) && newPhaseId != currentPhaseId)
+                            {
+                                currentPhaseId = newPhaseId;
+                                currentPhase = workbook.Phases.FirstOrDefault(p => p.Id == newPhaseId);
+                                Console.WriteLine($"Phase changed to: {currentPhaseId}");
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Failed to update phase: {ex.Message}");
+                    }
+                }
+            }
             if (!string.IsNullOrEmpty(turnResult.TtsAudioPath)) { lastTtsAudioPath = turnResult.TtsAudioPath; await PlayAtcAudio(); }
             isProcessingTurn = false;
             completedTurns.Add(new Turn { Idx = completedTurns.Count + 1, UserTranscript = currentTranscript });
