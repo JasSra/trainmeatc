@@ -60,6 +60,8 @@ namespace PilotSim.Server.Services
         public List<string> MandatoryMissing { get; init; } = new();
         public double? ReadbackCoverage { get; init; }
         public string? TtsTone { get; init; } // professional|calm|urgent
+        public TurnState TurnState { get; init; } = new(); // Comprehensive turn state tracking
+        public ScenarioOutcome? Outcome { get; init; } // Set when scenario completes
     }
 
     public sealed class Transmission
@@ -393,14 +395,17 @@ Return JSON:
             var ctx = BuildPhaseContext(req, phase, rng);
             var timeline = new List<Transmission>();
             InstructorVerdict? instructor = null; AtcReply? atc = null; TrafficReply? traf = null;
+            var turnState = new TurnState { PhaseId = phase.Id };
 
             // Conflict check
             bool conflictImminent = req.Workbook.ContextResolved?.TrafficSnapshot?.Conflicts?.Any(c => c.TimeToConflictS <= 90) == true;
+            turnState.ConflictImminent = conflictImminent;
 
             // 1) Silence handling (no student TX)
             if (string.IsNullOrWhiteSpace(req.Transcript))
             {
                 var sp = _router.Choose(req.Workbook, phase, silent: true, conflictImminent, rng);
+                turnState.Speaker = sp.ToString();
                 if (sp == Speaker.ATC)
                 {
                     timeline.Add(new Transmission
@@ -411,13 +416,15 @@ Return JSON:
                         Tone = "professional",
                         Persona = Persona(req)
                     });
+                    turnState.TransmissionCount = 1;
                     return new TurnResponse
                     {
                         PhaseId = req.PhaseId,
                         NextPhaseId = req.PhaseId,
                         Blocked = false,
                         Timeline = timeline,
-                        UpdatedState = req.CurrentState
+                        UpdatedState = req.CurrentState,
+                        TurnState = turnState
                     };
                 }
                 else
@@ -426,6 +433,7 @@ Return JSON:
                     var trafCtx = ComposeTrafficState(req, phase, ctx, mode: sp.ToString());
                     traf = await _traffic.NextAsync("", trafCtx, MapDifficulty(req.Difficulty), ct);
                     timeline.Add(ToTransmissionTraffic(req, phase, traf));
+                    turnState.TransmissionCount = 1;
                     var stateAfter = ApplyNextState(req.CurrentState, req.PhaseId, req.PhaseId, traf.NextState);
                     return new TurnResponse
                     {
@@ -433,7 +441,8 @@ Return JSON:
                         NextPhaseId = req.PhaseId,
                         Blocked = false,
                         Timeline = timeline,
-                        UpdatedState = stateAfter
+                        UpdatedState = stateAfter,
+                        TurnState = turnState
                     };
                 }
             }
@@ -445,8 +454,25 @@ Return JSON:
             var missing = ExtractMandatoryMissing(instructor);
             var coverage = ExtractCoverage(instructor);
 
+            // Populate turn state
+            turnState.ReadbackCoverage = coverage;
+            turnState.MandatoryMissing = missing;
+            if (instructor.Components != null)
+            {
+                turnState.ParsedSlots = instructor.Components
+                    .Where(c => !string.IsNullOrEmpty(c.Code))
+                    .ToDictionary(c => c.Code, c => (object)c.Score);
+            }
+
             // 3) Gate check (CASA mandatory readbacks/broadcasts + safety)
             var mustBlock = ShouldBlock(phase, req.Workbook, instructor);
+            turnState.Blocked = mustBlock.Block;
+            turnState.BlockReason = mustBlock.Reason;
+            if (instructor.SafetyFlag == true)
+            {
+                turnState.SafetyGateCode = "SAFETY_FLAG";
+            }
+
             if (mustBlock.Block)
             {
                 // Repeat/coach via ATC if tower, otherwise via traffic-style nudge
@@ -454,6 +480,8 @@ Return JSON:
                 {
                     atc = BuildRepeatClearance(phase, ctx, req, instructor, req.Difficulty);
                     timeline.Add(ToTransmissionATC(phase.PrimaryFreqMhz, atc, Persona(req)));
+                    turnState.Speaker = "ATC";
+                    turnState.TransmissionCount = 1;
                     var noAdvance = ApplyNextState(req.CurrentState, phase.Id, phase.Id, atc.NextState);
                     return new TurnResponse
                     {
@@ -467,7 +495,8 @@ Return JSON:
                         ReadbackCoverage = coverage,
                         MandatoryMissing = missing,
                         TtsTone = atc.TtsTone,
-                        UpdatedState = noAdvance
+                        UpdatedState = noAdvance,
+                        TurnState = turnState
                     };
                 }
                 else
@@ -476,6 +505,8 @@ Return JSON:
                     var trafCtx = ComposeTrafficState(req, phase, ctx, mode: "CTAF");
                     traf = await _traffic.NextAsync(req.Transcript, trafCtx, difficulty, ct);
                     timeline.Add(ToTransmissionTraffic(req, phase, traf));
+                    turnState.Speaker = "CTAF";
+                    turnState.TransmissionCount = 1;
                     var noAdvance = ApplyNextState(req.CurrentState, phase.Id, phase.Id, traf.NextState);
                     return new TurnResponse
                     {
@@ -488,17 +519,23 @@ Return JSON:
                         ReadbackCoverage = coverage,
                         MandatoryMissing = missing,
                         TtsTone = traf.TtsTone,
-                        UpdatedState = noAdvance
+                        UpdatedState = noAdvance,
+                        TurnState = turnState
                     };
                 }
             }
 
             // 4) Branch resolution
             var branch = PickBranch(phase, ctx, rng, req.Difficulty);
-            if (branch != null) ctx = ApplyBranch(ctx, branch);
+            if (branch != null)
+            {
+                ctx = ApplyBranch(ctx, branch);
+                turnState.BranchActivated = branch.Id;
+            }
 
             // 5) Response generation (ATC vs CTAF)
             var speaker = _router.Choose(req.Workbook, phase, silent: false, conflictImminent, rng);
+            turnState.Speaker = speaker.ToString();
             if (speaker == Speaker.ATC)
             {
                 var load = new Load(
@@ -525,6 +562,8 @@ Return JSON:
                 traf ??= extra;
             }
 
+            turnState.TransmissionCount = timeline.Count;
+
             // 7) Advance phase
             var nextPhaseId = ResolveNextPhaseId(phase, atc, traf) ?? req.PhaseId;
             var updated = ApplyNextState(req.CurrentState, req.PhaseId, nextPhaseId, (object?)atc?.NextState ?? traf?.NextState);
@@ -540,7 +579,8 @@ Return JSON:
                 ReadbackCoverage = coverage,
                 MandatoryMissing = missing,
                 TtsTone = atc?.TtsTone ?? traf?.TtsTone,
-                UpdatedState = updated
+                UpdatedState = updated,
+                TurnState = turnState
             };
         }
 

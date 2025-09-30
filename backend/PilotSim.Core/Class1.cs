@@ -381,3 +381,44 @@ public interface ISimConnectService {
         Task<CoachReply> NextAsync(object state, string hint, CancellationToken ct);
     }
     public sealed record CoachReply(string Transmission, object NextState, string? TtsTone);
+
+    /// <summary>
+    /// Comprehensive turn state tracking for each step in the scenario
+    /// </summary>
+    public sealed class TurnState
+    {
+        [JsonPropertyName("phase_id")] public string PhaseId { get; set; } = "";
+        [JsonPropertyName("parsed_slots")] public Dictionary<string, object> ParsedSlots { get; set; } = new();
+        [JsonPropertyName("readback_coverage")] public double? ReadbackCoverage { get; set; }
+        [JsonPropertyName("mandatory_missing")] public List<string> MandatoryMissing { get; set; } = new();
+        [JsonPropertyName("latency_s")] public double? LatencyS { get; set; }
+        [JsonPropertyName("overlaps")] public int Overlaps { get; set; }
+        [JsonPropertyName("safety_gate_code")] public string? SafetyGateCode { get; set; }
+        [JsonPropertyName("branch_activated")] public string? BranchActivated { get; set; }
+        [JsonPropertyName("speaker")] public string Speaker { get; set; } = "";
+        [JsonPropertyName("transmission_count")] public int TransmissionCount { get; set; }
+        [JsonPropertyName("conflict_imminent")] public bool ConflictImminent { get; set; }
+        [JsonPropertyName("blocked")] public bool Blocked { get; set; }
+        [JsonPropertyName("block_reason")] public string? BlockReason { get; set; }
+    }
+
+    /// <summary>
+    /// Outcome tracking for scenario completion
+    /// </summary>
+    public enum OutcomeType
+    {
+        InProgress,
+        Success,
+        FailMinor,
+        FailMajor
+    }
+
+    public sealed class ScenarioOutcome
+    {
+        [JsonPropertyName("outcome")] public OutcomeType Outcome { get; set; } = OutcomeType.InProgress;
+        [JsonPropertyName("reason")] public string Reason { get; set; } = "";
+        [JsonPropertyName("completed_phases")] public List<string> CompletedPhases { get; set; } = new();
+        [JsonPropertyName("metrics")] public Dictionary<string, double> Metrics { get; set; } = new();
+        [JsonPropertyName("safety_violations")] public List<string> SafetyViolations { get; set; } = new();
+        [JsonPropertyName("timestamp_utc")] public DateTime TimestampUtc { get; set; } = DateTime.UtcNow;
+    }
