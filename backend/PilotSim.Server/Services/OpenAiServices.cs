@@ -122,6 +122,8 @@ Rules:
 }
 
 // Adapter to allow SimulationController to keep working with old API while using new ITrafficAgent
+// DEPRECATED: No longer used - OpenAiAtcService now handles tower-controlled operations directly
+// Kept for reference only, can be removed in future cleanup
 public class AtcServiceAdapter : IAtcService
 {
     private readonly PilotSim.Server.Services.ITrafficAgent _trafficAgent;
