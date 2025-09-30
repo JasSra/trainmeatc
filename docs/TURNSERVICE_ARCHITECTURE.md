@@ -415,6 +415,358 @@ Both paths tested via same endpoint:
 - Review traffic snapshot data
 - Check for LLM API errors
 
+## Turn State Tracking
+
+### TurnState Structure
+
+Each turn maintains comprehensive state tracking:
+
+```csharp
+public sealed class TurnState
+{
+    public string PhaseId { get; set; }                      // Current phase
+    public Dictionary<string, object> ParsedSlots { get; set; } // Component scores
+    public double? ReadbackCoverage { get; set; }            // 0.0-1.0
+    public List<string> MandatoryMissing { get; set; }       // Missing components
+    public double? LatencyS { get; set; }                    // Response time
+    public int Overlaps { get; set; }                        // Radio overlaps
+    public string? SafetyGateCode { get; set; }              // Gate triggered
+    public string? BranchActivated { get; set; }             // Branch ID if any
+    public string Speaker { get; set; }                      // ATC|CTAF|Traffic
+    public int TransmissionCount { get; set; }               // Total transmissions
+    public bool ConflictImminent { get; set; }               // Traffic conflict flag
+    public bool Blocked { get; set; }                        // Turn blocked flag
+    public string? BlockReason { get; set; }                 // Why blocked
+}
+```
+
+### Micro-Flow with Silence, CTAF, and Branches
+
+Complete turn processing flow:
+
+```
+Turn Start
+  │
+  ├─ Initialize TurnState
+  │   - Set phase_id
+  │   - Check conflict_imminent
+  │
+  ├─ [Silence Check]
+  │   │
+  │   IF transcript is empty THEN
+  │     │
+  │     ├─ Router.Choose(silent=true)
+  │     │   │
+  │     │   IF tower_active THEN
+  │     │     └─ ATC Nudge: "Say intentions"
+  │     │        └─ Return (no phase advance)
+  │     │   ELSE
+  │     │     └─ TrafficAgent: CTAF interject
+  │     │        └─ Return (no phase advance)
+  │
+  ├─ [Instructor Score]
+  │   │
+  │   ├─ Score transcript against phase requirements
+  │   ├─ Extract parsed_slots from components
+  │   ├─ Calculate readback_coverage
+  │   ├─ Identify mandatory_missing
+  │   └─ Set safety_flag if critical error
+  │
+  ├─ [Safety Gate Check]
+  │   │
+  │   IF mandatory items missing OR safety_flag THEN
+  │     │
+  │     ├─ Set turnState.blocked = true
+  │     ├─ Set turnState.safety_gate_code
+  │     │
+  │     IF tower_active THEN
+  │       └─ ATC Repeat/Coach
+  │          └─ Return (blocked, no phase advance)
+  │     ELSE
+  │       └─ Traffic Nudge (CTAF)
+  │          └─ Return (blocked, no phase advance)
+  │
+  ├─ [Branch Resolution]
+  │   │
+  │   FOR each branch in phase.branches:
+  │     │
+  │     ├─ Evaluate guard criteria
+  │     ├─ Roll probability × difficulty.variability
+  │     │
+  │     IF guard passes AND roll succeeds THEN
+  │       │
+  │       ├─ Apply branch effects to context
+  │       ├─ Set turnState.branch_activated
+  │       │
+  │       IF branch.atc_override exists THEN
+  │         └─ Override normal ATC response
+  │       │
+  │       └─ Break (first match wins)
+  │
+  ├─ [Response Generation]
+  │   │
+  │   ├─ Router.Choose(silent=false, conflict_imminent)
+  │   │   │
+  │   │   IF tower_active THEN
+  │   │     └─ Speaker.ATC
+  │   │   ELSE IF conflict_imminent THEN
+  │   │     └─ Speaker.TrafficNearest
+  │   │   ELSE IF random < random_interject_prob THEN
+  │   │     └─ Speaker.TrafficRandom
+  │   │   ELSE
+  │   │     └─ Speaker.CTAF
+  │   │
+  │   ├─ Set turnState.speaker
+  │   │
+  │   IF speaker == ATC THEN
+  │     │
+  │     ├─ Call AtcService.NextAsync()
+  │     ├─ Add ATC transmission to timeline
+  │     │
+  │     IF conflict_imminent THEN
+  │       └─ Also add traffic advisory
+  │   ELSE
+  │     │
+  │     ├─ Call TrafficAgent.NextAsync()
+  │     └─ Add traffic transmission to timeline
+  │
+  ├─ [State Update]
+  │   │
+  │   ├─ Set turnState.transmission_count
+  │   ├─ Resolve next_phase_id from ATC/Traffic response
+  │   ├─ Apply state deltas
+  │   └─ Update phase context
+  │
+  └─ [Completion Check]
+      │
+      IF next_phase_id == workbook.completion.end_phase_id THEN
+        │
+        ├─ Evaluate success_when_all criteria
+        ├─ Evaluate fail_major_when_any criteria
+        ├─ Evaluate fail_minor_when_any criteria
+        │
+        └─ Set scenario_outcome
+           - OutcomeType: Success|FailMajor|FailMinor
+           - Reason: Description
+           - Completed phases
+           - Metrics summary
+           - Safety violations
+      │
+      └─ Return TurnResponse
+```
+
+### Data and State at Each Step
+
+#### Workbook Context (Persistent)
+```json
+{
+  "phases": [...],
+  "required_components": ["CALLSIGN", "RUNWAY", ...],
+  "broadcast_components": ["LOCATION", "ALTITUDE", ...],
+  "safety_gates": [...],
+  "tolerance": {...},
+  "branches": [...],
+  "completion": {
+    "success_when_all": [...],
+    "fail_major_when_any": [...],
+    "fail_minor_when_any": [...]
+  }
+}
+```
+
+#### Airport Context (Per Scenario)
+```json
+{
+  "airport": {
+    "icao": "YMML",
+    "lat_deg": -37.6733,
+    "lon_deg": 144.8433,
+    "tower_active": true,
+    "tower_mhz": 118.1,
+    "ctaf_mhz": 126.7
+  },
+  "runway_in_use": "16",
+  "weather_si": {
+    "wind_dir_deg": 160,
+    "wind_speed_mps": 5.0,
+    "qnh_hpa": 1013,
+    "vis_km": 10.0
+  },
+  "traffic_snapshot": {
+    "density": "moderate",
+    "actors": [...],
+    "conflicts": [
+      {
+        "with_callsign": "QFA456",
+        "event": "runway_crossing",
+        "time_to_conflict_s": 45
+      }
+    ]
+  },
+  "notams": [...]
+}
+```
+
+#### Turn State (Per Turn)
+```json
+{
+  "phase_id": "taxi_request",
+  "parsed_slots": {
+    "CALLSIGN": 1.0,
+    "LOCATION": 0.9,
+    "ATIS": 1.0,
+    "INTENTIONS": 0.8
+  },
+  "readback_coverage": 0.85,
+  "mandatory_missing": [],
+  "latency_s": 2.3,
+  "overlaps": 0,
+  "safety_gate_code": null,
+  "branch_activated": "taxi_route_change",
+  "speaker": "ATC",
+  "transmission_count": 1,
+  "conflict_imminent": false,
+  "blocked": false,
+  "block_reason": null
+}
+```
+
+#### Timeline (Accumulated)
+```json
+[
+  {
+    "source": "ATC",
+    "freq_mhz": 121.7,
+    "text": "VH-ABC, taxi via Alpha, Bravo, hold short runway 16.",
+    "tone": "professional",
+    "persona": "normal",
+    "attributes": {
+      "direction": "N/A"
+    }
+  },
+  {
+    "source": "TRAFFIC:QFA456",
+    "freq_mhz": 118.1,
+    "text": "Qantas 456, ready runway 16.",
+    "tone": "professional",
+    "persona": "concise",
+    "attributes": {
+      "direction": "N/A",
+      "role": "traffic"
+    }
+  }
+]
+```
+
+#### Scenario Outcome (On Completion)
+```json
+{
+  "outcome": "Success",
+  "reason": "All mandatory components satisfied, no safety violations",
+  "completed_phases": [
+    "taxi_request",
+    "taxi_to_runway",
+    "lineup_wait",
+    "takeoff_clearance",
+    "departure"
+  ],
+  "metrics": {
+    "avg_readback_coverage": 0.87,
+    "avg_phrase_accuracy": 0.92,
+    "total_blocks": 1,
+    "safety_violations": 0
+  },
+  "safety_violations": [],
+  "timestamp_utc": "2024-01-15T14:30:00Z"
+}
+```
+
+### End Conditions
+
+#### Success Criteria
+All conditions in `success_when_all` must be true:
+```json
+{
+  "success_when_all": [
+    {
+      "lhs": "completed_phases",
+      "op": "contains",
+      "rhs": "departure"
+    },
+    {
+      "lhs": "safety_violations",
+      "op": "==",
+      "rhs": 0
+    },
+    {
+      "lhs": "avg_readback_coverage",
+      "op": ">=",
+      "rhs": 0.80
+    }
+  ]
+}
+```
+
+#### Fail Major Criteria
+Any condition in `fail_major_when_any` triggers major failure:
+```json
+{
+  "fail_major_when_any": [
+    {
+      "lhs": "safety_violations",
+      "op": "contains",
+      "rhs": "runway_incursion"
+    },
+    {
+      "lhs": "wrong_frequency_conflict",
+      "op": "==",
+      "rhs": true
+    },
+    {
+      "lhs": "missed_mandatory_mba",
+      "op": "==",
+      "rhs": true
+    }
+  ]
+}
+```
+
+Examples of fail_major events:
+- Runway access without clearance
+- Wrong frequency in traffic zone with conflict
+- Missed mandatory MBA broadcast when conflict existed
+
+#### Fail Minor Criteria
+Any condition in `fail_minor_when_any` triggers minor failure:
+```json
+{
+  "fail_minor_when_any": [
+    {
+      "lhs": "avg_readback_coverage",
+      "op": "<=",
+      "rhs": 0.70
+    },
+    {
+      "lhs": "repeated_timing_violations",
+      "op": ">=",
+      "rhs": 3
+    },
+    {
+      "lhs": "non_critical_omissions_last_phase",
+      "op": ">=",
+      "rhs": 2
+    }
+  ]
+}
+```
+
+Examples of fail_minor events:
+- Coverage < threshold across multiple turns
+- Repeated timing violations (too fast/slow responses)
+- Non-critical omissions at last phase
+
+## Troubleshooting
+
 ## References
 
 - [ScenarioWorkbookV2 Specification](../backend/PilotSim.Core/Class1.cs) - Core data structures
