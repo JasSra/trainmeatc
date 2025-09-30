@@ -1,0 +1,403 @@
+{
+  "meta": {
+    "id": "inbound_controlled_v2_001",
+    "version": "2.0",
+    "author": "Jas",
+    "review_date_utc": "2025-10-01T00:00:00Z"
+  },
+  "inputs": {
+    "icao": "YMML",
+    "aircraft": "C182",
+    "start_utc": "2025-10-02T06:45:00Z",
+    "time_of_day": "day",
+    "variability": 0.4,
+    "load": 0.6,
+    "weather_source": "sim",
+    "notam_source": "sim"
+  },
+  "context_resolved": {
+    "airport": {
+      "icao": "YMML",
+      "name": "Melbourne",
+      "lat_deg": "{{ PLACEHOLDER }}",
+      "lon_deg": "{{ PLACEHOLDER }}",
+      "elevation_m_msl": "{{ PLACEHOLDER }}",
+      "timezone": "Australia/Melbourne",
+      "atis_mhz": 120.0,
+      "tower_mhz": 120.5,
+      "ground_mhz": 121.7,
+      "approach_mhz": 132.0,
+      "ctaf_mhz": null,
+      "tower_active": true,
+      "pattern_altitude_m_agl": 305,
+      "circuit_direction": "left"
+    },
+    "runway_in_use": "27",
+    "weather_si": {
+      "wind_dir_deg": 280,
+      "wind_speed_mps": 6.0,
+      "gust_mps": 10.0,
+      "vis_km": 10,
+      "ceiling_m_agl": 1500,
+      "qnh_hpa": 1014,
+      "temp_c": 19.0
+    },
+    "atis_txt": "Information {{ PLACEHOLDER }}, runway two seven, wind two eight zero at 12 knots, QNH one zero one four.",
+    "notams": [],
+    "traffic_snapshot": {
+      "density": "heavy",
+      "actors": [
+        {
+          "callsign": "QFA123",
+          "type": "A320",
+          "wake": "Medium",
+          "intent": "final_27",
+          "lat_deg": "{{ PLACEHOLDER }}",
+          "lon_deg": "{{ PLACEHOLDER }}",
+          "alt_m_msl": 120,
+          "gs_mps": 70
+        },
+        {
+          "callsign": "JST456",
+          "type": "B737",
+          "wake": "Medium",
+          "intent": "base_27",
+          "lat_deg": "{{ PLACEHOLDER }}",
+          "lon_deg": "{{ PLACEHOLDER }}",
+          "alt_m_msl": 180,
+          "gs_mps": 85
+        }
+      ],
+      "conflicts": [
+        {
+          "with_callsign": "QFA123",
+          "event": "sequence_gap",
+          "time_to_conflict_s": 90
+        }
+      ]
+    }
+  },
+  "phases": [
+    {
+      "id": "atis",
+      "name": "ATIS",
+      "primary_freq_mhz": 120.0,
+      "pilot_cue": "Copy ATIS prior to contact.",
+      "controller_policy": "ATIS only.",
+      "expected_readback": [
+        "{{ PLACEHOLDER }} acknowledged, QNH one zero one four."
+      ],
+      "required_components": [
+        "QNH"
+      ],
+      "entry_criteria": [],
+      "common_errors": [
+        "No ATIS letter"
+      ],
+      "coaching_tips": [
+        "Report ATIS on first call to Approach"
+      ],
+      "safety_gates": [],
+      "next_state": {
+        "phase_id": "approach",
+        "state_deltas": []
+      },
+      "branches": []
+    },
+    {
+      "id": "approach",
+      "name": "Initial contact with Approach",
+      "primary_freq_mhz": 132.0,
+      "pilot_cue": "“Melbourne Approach, VH-ABC, 12 km east, 900 m, received {{ PLACEHOLDER }} for landing.”",
+      "controller_policy": "Approach assigns track, altitude, frequency handoff to Tower.",
+      "expected_readback": [
+        "Assigned track, altitude, QNH, and frequency."
+      ],
+      "required_components": [
+        "LEVEL",
+        "QNH",
+        "FREQ"
+      ],
+      "entry_criteria": [],
+      "common_errors": [
+        "Omit level restriction",
+        "Wrong frequency"
+      ],
+      "coaching_tips": [
+        "Read back all assigned level and frequency"
+      ],
+      "safety_gates": [
+        {
+          "code": "LEVEL_MISS",
+          "trigger": {
+            "lhs": "slot.LEVEL",
+            "op": "missing",
+            "rhs": null
+          },
+          "action": "block",
+          "controller_on_block": "Say again level; read back in full."
+        }
+      ],
+      "next_state": {
+        "phase_id": "tower_join",
+        "state_deltas": [
+          {
+            "key": "context_resolved.tower_mhz",
+            "value": 120.5
+          }
+        ]
+      },
+      "branches": [
+        {
+          "id": "vectoring_delay",
+          "probability": 0.25,
+          "guard": [],
+          "effects": [
+            {
+              "key": "context_resolved.runway_in_use",
+              "value": "27"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tower_join",
+      "name": "Tower join and sequence",
+      "primary_freq_mhz": 120.5,
+      "pilot_cue": "Report joining as instructed; expect sequence to RWY 27.",
+      "controller_policy": "Provide sequence, possibly ‘continue approach’, then landing clearance.",
+      "expected_readback": [
+        "Sequence number; runway two seven."
+      ],
+      "required_components": [
+        "RUNWAY"
+      ],
+      "entry_criteria": [],
+      "common_errors": [
+        "Omit runway in readback"
+      ],
+      "coaching_tips": [
+        "State runway every time when cleared to land"
+      ],
+      "safety_gates": [],
+      "next_state": {
+        "phase_id": "landing",
+        "state_deltas": []
+      },
+      "branches": [
+        {
+          "id": "go_around_instruction",
+          "probability": 0.15,
+          "guard": [],
+          "effects": [],
+          "atc_override": {
+            "transmission": "VH-ABC, go around, track runway heading, climb to 600 m, contact Approach 132.0.",
+            "expected_readback": [
+              "Going around, runway heading, climb to six hundred metres, Approach one three two decimal zero."
+            ],
+            "required_components": [
+              "RUNWAY",
+              "LEVEL",
+              "FREQ"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "landing",
+      "name": "Landing clearance",
+      "primary_freq_mhz": 120.5,
+      "pilot_cue": "Expect ‘cleared to land RWY 27’.",
+      "controller_policy": "Issue landing clearance with wind and runway.",
+      "expected_readback": [
+        "Cleared to land runway two seven, VH-ABC."
+      ],
+      "required_components": [
+        "RUNWAY"
+      ],
+      "entry_criteria": [],
+      "common_errors": [
+        "No ‘cleared to land’ readback"
+      ],
+      "coaching_tips": [
+        "Include runway in clearance readback"
+      ],
+      "safety_gates": [
+        {
+          "code": "LANDING_CLR_MISS",
+          "trigger": {
+            "lhs": "slot.RUNWAY",
+            "op": "missing",
+            "rhs": null
+          },
+          "action": "block",
+          "controller_on_block": "Say again; confirm cleared to land runway two seven."
+        }
+      ],
+      "next_state": {
+        "phase_id": "vacate",
+        "state_deltas": []
+      },
+      "branches": []
+    },
+    {
+      "id": "vacate",
+      "name": "Vacate and contact Ground",
+      "primary_freq_mhz": 121.7,
+      "pilot_cue": "After vacating RWY 27, contact Ground for taxi.",
+      "controller_policy": "Issue vacate instruction and frequency change.",
+      "expected_readback": [
+        "Vacate via {{ PLACEHOLDER }}, contact Ground one two one decimal seven."
+      ],
+      "required_components": [
+        "VACATE",
+        "FREQ"
+      ],
+      "entry_criteria": [],
+      "common_errors": [
+        "Forgetting frequency change"
+      ],
+      "coaching_tips": [
+        "Repeat the frequency slowly"
+      ],
+      "safety_gates": [],
+      "next_state": {
+        "phase_id": "end",
+        "state_deltas": []
+      },
+      "branches": []
+    }
+  ],
+  "rubric": {
+    "rubric_version": "v2",
+    "weights": {
+      "phrase_accuracy": 0.35,
+      "ordering": 0.15,
+      "omissions": 0.20,
+      "safety": 0.30
+    },
+    "safety_cap": 0.49,
+    "thresholds": {
+      "pass_norm": 0.70,
+      "readback_cov_min": 0.80
+    },
+    "readback_policy": {
+      "mandatory_components": [
+        "LEVEL",
+        "QNH",
+        "FREQ",
+        "RUNWAY",
+        "VACATE"
+      ],
+      "block_on_missing": [
+        "LEVEL",
+        "QNH",
+        "FREQ",
+        "RUNWAY"
+      ],
+      "warn_on_missing": [
+        "VACATE"
+      ],
+      "slot_definitions": {
+        "RUNWAY": {
+          "pattern": "\\b\\d{2}[LRC]?\\b"
+        },
+        "LEVEL": {
+          "pattern": "\\b\\d{2,4}\\b"
+        },
+        "QNH": {
+          "pattern": "\\b(QNH )?\\d{3,4}\\b"
+        },
+        "FREQ": {
+          "pattern": "\\b\\d{3}\\.\\d\\b"
+        },
+        "VACATE": {
+          "pattern": "\\b(vacate|exit)\\b"
+        }
+      }
+    },
+    "timing": {
+      "response_latency_s_ok": [
+        0.5,
+        3.0
+      ],
+      "overlap_penalty_per_event": 0.05
+    }
+  },
+  "tolerance": {
+    "synonyms": [
+      [
+        "decimal",
+        "point"
+      ],
+      [
+        "vacate",
+        "exit"
+      ],
+      [
+        "line up",
+        "line up and wait"
+      ]
+    ],
+    "phonetic_variants": {
+      "A": [
+        "alpha",
+        "alfa"
+      ]
+    },
+    "fuzzy_edit_distance_max": 2,
+    "numeric_tolerance": {
+      "freq_decimals_equivalence": true
+    },
+    "slot_scoring": true
+  },
+  "global_safety_gates": [
+    {
+      "code": "RUNWAY_ENTRY_WITHOUT_CLR",
+      "trigger": {
+        "lhs": "movement.cross_hold_line",
+        "op": "==",
+        "rhs": true
+      },
+      "action": "block",
+      "controller_on_block": "Hold position; say again clearance."
+    }
+  ],
+  "debrief": {
+    "bullet_points": [
+      "State ATIS on first call",
+      "Read back level/QNH/frequency",
+      "Include runway in landing clearance"
+    ],
+    "exemplar_readbacks": [
+      "Cleared to land runway two seven, VH-ABC."
+    ],
+    "references": [
+      "{{ PLACEHOLDER AIP GEN 3.4 ref }}"
+    ],
+    "metrics_to_show": [
+      "readback_cov_%",
+      "latency_s",
+      "overlaps",
+      "safety_gates"
+    ]
+  },
+  "authoring_notes": "Replace {{ PLACEHOLDER }} with real ATIS letter, lat/lon, vacate taxiway.",
+  "responder_map": {
+    "default": "ATC|CTAF",
+    "on_silence": "COACH",
+    "on_conflict": "TRAFFIC_NEAREST_CONFLICT",
+    "random_interject_prob": 0.15
+  },
+  "broadcast_required_components": [
+    "LOCATION_TRAFFIC",
+    "TYPE",
+    "CALLSIGN",
+    "POSITION",
+    "LEVEL_m_MSL",
+    "INTENTIONS",
+    "LOCATION_REPEAT"
+  ]
+}

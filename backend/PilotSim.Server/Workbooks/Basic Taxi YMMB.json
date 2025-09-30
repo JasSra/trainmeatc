@@ -1,0 +1,150 @@
+{
+  "meta": { "id": "taxi_any_icao_v2_001", "version": "2.0", "author": "Jas", "review_date_utc": "2025-10-01T00:00:00Z" },
+  "inputs": {
+    "icao": "YMMB",
+    "aircraft": "C172",
+    "start_utc": "2025-10-01T21:30:00Z",
+    "time_of_day": "day",
+    "variability": 0.3,
+    "load": 0.4,
+    "weather_source": "sim",
+    "notam_source": "sim"
+  },
+  "context_resolved": {
+    "airport": {
+      "icao": "YMMB",
+      "name": "Moorabbin",
+      "lat_deg": -37.9750,
+      "lon_deg": 145.1022,
+      "elevation_m_msl": 15,
+      "timezone": "Australia/Melbourne",
+      "atis_mhz": 134.7,
+      "tower_mhz": 118.1,
+      "ground_mhz": 121.9,
+      "ctaf_mhz": 118.1,
+      "tower_active": true,
+      "pattern_altitude_m_agl": 305,
+      "circuit_direction": "left"
+    },
+    "runway_in_use": "17L",
+    "weather_si": {
+      "wind_dir_deg": 160,
+      "wind_speed_mps": 4.0,
+      "gust_mps": 7.0,
+      "vis_km": 10,
+      "ceiling_m_agl": 1200,
+      "qnh_hpa": 1016,
+      "temp_c": 17.0
+    },
+    "atis_txt": "Information {{ PLACEHOLDER }}, runway one seven left in use, wind one six zero at 8 knots, QNH one zero one six.",
+    "notams": [
+      { "id": "LOCAL-H1", "summary": "TWY H1 lights u/s", "active": true }
+    ],
+    "traffic_snapshot": {
+      "density": "moderate",
+      "actors": [
+        { "callsign": "VH-XYZ", "type": "C172", "wake": "Light", "intent": "hold_short", "lat_deg": -37.972, "lon_deg": 145.100, "alt_m_msl": 15, "gs_mps": 0 },
+        { "callsign": "QFA456", "type": "A320", "wake": "Medium", "intent": "vacate_rwy", "lat_deg": -37.990, "lon_deg": 145.110, "alt_m_msl": 15, "gs_mps": 7 }
+      ],
+      "conflicts": [
+        { "with_callsign": "QFA456", "event": "runway_occupancy", "time_to_conflict_s": 45 }
+      ]
+    }
+  },
+  "phases": [
+    {
+      "id": "pre_start",
+      "name": "Pre-start & ATIS",
+      "primary_freq_mhz": 134.7,
+      "pilot_cue": "Copy ATIS; set radios.",
+      "controller_policy": "ATIS only; no clearances.",
+      "expected_readback": ["{{ PLACEHOLDER }} acknowledged, QNH one zero one six."],
+      "required_components": ["QNH"],
+      "entry_criteria": [],
+      "common_errors": ["No QNH acknowledgment"],
+      "coaching_tips": ["State QNH to prime memory"],
+      "safety_gates": [
+        { "code": "QNH_MISS", "trigger": { "lhs": "slot.QNH", "op": "missing", "rhs": null }, "action": "warn" }
+      ],
+      "next_state": { "phase_id": "taxi", "state_deltas": [] },
+      "branches": [
+        { "id": "wind_shift", "probability": 0.15, "guard": [], "effects": [ { "key": "context_resolved.runway_in_use", "value": "17R" } ] }
+      ]
+    },
+    {
+      "id": "taxi",
+      "name": "Taxi to holding point",
+      "primary_freq_mhz": 121.9,
+      "pilot_cue": "Request taxi for circuits runway 17L.",
+      "controller_policy": "Issue route A, H1, A1; hold short RWY 17L; QNH; squawk; ground freq.",
+      "expected_readback": [
+        "VH-ABC, taxi A, H1, A1, hold short runway one seven left, QNH one zero one six, squawk three zero zero zero."
+      ],
+      "required_components": ["RUNWAY","HOLDING_POINT","ROUTE_TAXI","QNH","SQUAWK","FREQ"],
+      "entry_criteria": [],
+      "common_errors": ["Omit holding point", "Implied runway entry"],
+      "coaching_tips": ["Always include runway + holding point + full route"],
+      "safety_gates": [
+        { "code": "RUNWAY_ENTRY_WITHOUT_CLR", "trigger": { "lhs": "movement.cross_hold_line", "op": "==", "rhs": true }, "action": "block", "controller_on_block": "Repeat clearance slowly; request full readback." }
+      ],
+      "next_state": { "phase_id": "hold_short", "state_deltas": [] },
+      "branches": [
+        {
+          "id": "conditional_crossing",
+          "probability": 0.25,
+          "guard": [],
+          "effects": [],
+          "atc_override": {
+            "transmission": "After Qantas A320 crossing left to right, line up runway one seven left.",
+            "expected_readback": ["VH-ABC, after Qantas A320 crossing, line up runway one seven left."],
+            "required_components": ["RUNWAY","CONDITIONAL"]
+          }
+        }
+      ]
+    }
+  ],
+  "rubric": {
+    "rubric_version": "v2",
+    "weights": { "phrase_accuracy": 0.35, "ordering": 0.15, "omissions": 0.20, "safety": 0.30 },
+    "safety_cap": 0.49,
+    "thresholds": { "pass_norm": 0.70, "readback_cov_min": 0.80 },
+    "readback_policy": {
+      "mandatory_components": ["ROUTE_TAXI","HOLDING_POINT","RUNWAY","QNH","SQUAWK","FREQ"],
+      "block_on_missing": ["RUNWAY","HOLDING_POINT","ROUTE_TAXI","QNH","SQUAWK","FREQ"],
+      "warn_on_missing": [],
+      "slot_definitions": {
+        "RUNWAY": { "pattern": "\\b\\d{2}[LRC]?\\b" },
+        "HOLDING_POINT": { "pattern": "\\b[A-Z][0-9]?\\b" },
+        "ROUTE_TAXI": { "pattern": "\\b([A-Z][0-9]?)(,? ?| -> )+" },
+        "QNH": { "pattern": "\\b(QNH )?\\d{3,4}\\b" },
+        "FREQ": { "pattern": "\\b\\d{3}\\.\\d\\b" },
+        "SQUAWK": { "pattern": "\\b\\d{4}\\b" }
+      }
+    },
+    "timing": { "response_latency_s_ok": [0.5, 3.0], "overlap_penalty_per_event": 0.05 }
+  },
+  "tolerance": {
+    "synonyms": [["hold short","holding point"],["decimal","point"],["line up","line up and wait"]],
+    "phonetic_variants": { "A": ["alpha","alfa"] },
+    "fuzzy_edit_distance_max": 2,
+    "numeric_tolerance": { "freq_decimals_equivalence": true },
+    "slot_scoring": true
+  },
+  "global_safety_gates": [
+    { "code": "RUNWAY_ENTRY_WITHOUT_CLR", "trigger": { "lhs": "movement.cross_hold_line", "op": "==", "rhs": true }, "action": "block", "controller_on_block": "Hold position; say again clearance." }
+  ],
+  "debrief": {
+    "bullet_points": ["Read back route + holding point + runway", "Never imply runway access"],
+    "exemplar_readbacks": ["VH-ABC, taxi A, H1, A1, hold short runway one seven left, QNH 1016, squawk 3000."],
+    "references": ["{{ PLACEHOLDER AIP GEN 3.4 ref }}"],
+    "metrics_to_show": ["readback_cov_%","latency_s","overlaps","safety_gates"]
+  },
+  "authoring_notes": "SI stored; RTF spoken converts to ft/kt/NM.",
+  "responder_map": {
+    "default": "ATC|CTAF",
+    "on_silence": "COACH",
+    "on_conflict": "TRAFFIC_NEAREST_CONFLICT",
+    "random_interject_prob": 0.15
+  },
+  "broadcast_required_components": ["LOCATION_TRAFFIC","TYPE","CALLSIGN","POSITION","LEVEL_m_MSL","INTENTIONS","LOCATION_REPEAT"]
+}
