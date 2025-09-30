@@ -565,6 +565,25 @@ public class SimulationController : ControllerBase
                 turnStartIso, sttMs, turnServiceMs, ttsMs, totalMs, 
                 turnResponse.Blocked, turnResponse.UpdatedState, cancellationToken);
 
+            // Step 13: Completion evaluation (check success/fail conditions)
+            var completionResult = EvaluateCompletion(workbook, session, turnResponse);
+            if (completionResult.IsComplete)
+            {
+                session.Outcome = completionResult.Outcome;
+                session.EndedUtc = DateTime.UtcNow.ToString("O");
+                await _context.SaveChangesAsync(cancellationToken);
+                
+                // Send completion event to client
+                await _hubContext.Clients.Group($"session-{request.SessionId}")
+                    .SendAsync("sessionComplete", new { 
+                        outcome = completionResult.Outcome, 
+                        reason = completionResult.Reason 
+                    }, cancellationToken);
+                
+                _logger.LogInformation("Session {SessionId} completed with outcome: {Outcome}", 
+                    request.SessionId, completionResult.Outcome);
+            }
+
             return Ok(new TurnResult(transcript, verdict ?? new InstructorVerdict(
                 new List<string>(), new List<string>(), null, 0.5, 0, ""), atcReply!, ttsAudioPath));
         }
@@ -740,5 +759,239 @@ public class SimulationController : ControllerBase
             if (_context.ChangeTracker.HasChanges())
                 await _context.SaveChangesAsync(cancellationToken);
         }
+    }
+
+    // Completion evaluation result
+    private record CompletionEvaluationResult(
+        bool IsComplete,
+        string? Outcome,
+        string? Reason);
+
+    // Step 13: Evaluate completion criteria
+    private CompletionEvaluationResult EvaluateCompletion(
+        ScenarioWorkbookV2 workbook,
+        Session session,
+        PilotSim.Server.Services.TurnResponse turnResponse)
+    {
+        if (workbook.Completion == null)
+            return new CompletionEvaluationResult(false, null, null);
+
+        var state = turnResponse.UpdatedState;
+        var currentPhaseId = turnResponse.NextPhaseId;
+        var isLastPhase = workbook.Phases.LastOrDefault()?.Id == currentPhaseId;
+
+        // Check fail_major conditions (immediate failure)
+        if (workbook.Completion.FailMajorWhenAny?.Any() == true)
+        {
+            foreach (var criterion in workbook.Completion.FailMajorWhenAny)
+            {
+                if (EvaluateCriterion(criterion, state, session, turnResponse))
+                {
+                    return new CompletionEvaluationResult(
+                        true,
+                        "fail_major",
+                        $"Major failure: {criterion.Lhs} {criterion.Op} {criterion.Rhs}");
+                }
+            }
+        }
+
+        // Check fail_minor conditions (only on last phase)
+        if (isLastPhase && workbook.Completion.FailMinorWhenAny?.Any() == true)
+        {
+            foreach (var criterion in workbook.Completion.FailMinorWhenAny)
+            {
+                if (EvaluateCriterion(criterion, state, session, turnResponse))
+                {
+                    return new CompletionEvaluationResult(
+                        true,
+                        "fail_minor",
+                        $"Minor failure: {criterion.Lhs} {criterion.Op} {criterion.Rhs}");
+                }
+            }
+        }
+
+        // Check success conditions (all must be true)
+        if (workbook.Completion.SuccessWhenAll?.Any() == true)
+        {
+            var allSuccess = workbook.Completion.SuccessWhenAll.All(criterion =>
+                EvaluateCriterion(criterion, state, session, turnResponse));
+
+            if (allSuccess)
+            {
+                return new CompletionEvaluationResult(
+                    true,
+                    "success",
+                    "All completion criteria met");
+            }
+        }
+
+        // Not complete yet
+        return new CompletionEvaluationResult(false, null, null);
+    }
+
+    // Evaluate a single criterion
+    private bool EvaluateCriterion(
+        Criterion criterion,
+        JsonElement state,
+        Session session,
+        PilotSim.Server.Services.TurnResponse turnResponse)
+    {
+        try
+        {
+            // Get the left-hand side value from state
+            object? lhsValue = GetValueFromState(criterion.Lhs, state, session, turnResponse);
+            
+            // Handle different operators
+            switch (criterion.Op.ToLowerInvariant())
+            {
+                case "exists":
+                    return lhsValue != null;
+                    
+                case "missing":
+                    return lhsValue == null;
+                    
+                case "contains":
+                    if (lhsValue is string str && criterion.Rhs.ValueKind == JsonValueKind.String)
+                        return str.Contains(criterion.Rhs.GetString() ?? "", StringComparison.OrdinalIgnoreCase);
+                    return false;
+                    
+                case "==":
+                case "equals":
+                    return CompareValues(lhsValue, criterion.Rhs, "==");
+                    
+                case ">=":
+                    return CompareValues(lhsValue, criterion.Rhs, ">=");
+                    
+                case "<=":
+                    return CompareValues(lhsValue, criterion.Rhs, "<=");
+                    
+                case ">":
+                    return CompareValues(lhsValue, criterion.Rhs, ">");
+                    
+                case "<":
+                    return CompareValues(lhsValue, criterion.Rhs, "<");
+                    
+                default:
+                    _logger.LogWarning("Unknown criterion operator: {Op}", criterion.Op);
+                    return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error evaluating criterion: {Lhs} {Op}", criterion.Lhs, criterion.Op);
+            return false;
+        }
+    }
+
+    // Get value from state by path (e.g., "phase", "metrics.coverage", "safety_flag")
+    private object? GetValueFromState(
+        string path,
+        JsonElement state,
+        Session session,
+        PilotSim.Server.Services.TurnResponse turnResponse)
+    {
+        // Handle special paths
+        switch (path.ToLowerInvariant())
+        {
+            case "phase":
+                return turnResponse.NextPhaseId;
+                
+            case "safety_flag":
+            case "safetyflag":
+                return turnResponse.Instructor?.SafetyFlag ?? false;
+                
+            case "blocked":
+                return turnResponse.Blocked;
+                
+            case "readback_coverage":
+            case "coverage":
+                return turnResponse.ReadbackCoverage ?? 0.0;
+                
+            case "mandatory_missing_count":
+                return turnResponse.MandatoryMissing?.Count ?? 0;
+                
+            case "score_total":
+            case "score":
+                return session.ScoreTotal;
+                
+            case "turn_count":
+                return session.Turns.Count;
+        }
+
+        // Try to get from state JSON
+        try
+        {
+            var parts = path.Split('.');
+            var current = state;
+            
+            foreach (var part in parts)
+            {
+                if (current.TryGetProperty(part, out var next))
+                    current = next;
+                else
+                    return null;
+            }
+
+            // Convert JsonElement to appropriate type
+            return current.ValueKind switch
+            {
+                JsonValueKind.String => current.GetString(),
+                JsonValueKind.Number => current.GetDouble(),
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                JsonValueKind.Null => null,
+                _ => current.GetRawText()
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    // Compare values based on operator
+    private bool CompareValues(object? lhs, JsonElement rhs, string op)
+    {
+        if (lhs == null) return false;
+
+        try
+        {
+            // Try numeric comparison
+            if (lhs is double || lhs is int || lhs is float)
+            {
+                var lhsNum = Convert.ToDouble(lhs);
+                var rhsNum = rhs.GetDouble();
+                
+                return op switch
+                {
+                    "==" => Math.Abs(lhsNum - rhsNum) < 0.0001,
+                    ">=" => lhsNum >= rhsNum,
+                    "<=" => lhsNum <= rhsNum,
+                    ">" => lhsNum > rhsNum,
+                    "<" => lhsNum < rhsNum,
+                    _ => false
+                };
+            }
+            
+            // String comparison
+            if (lhs is string lhsStr && rhs.ValueKind == JsonValueKind.String)
+            {
+                var rhsStr = rhs.GetString();
+                return op == "==" && lhsStr.Equals(rhsStr, StringComparison.OrdinalIgnoreCase);
+            }
+            
+            // Boolean comparison
+            if (lhs is bool lhsBool)
+            {
+                var rhsBool = rhs.GetBoolean();
+                return op == "==" && lhsBool == rhsBool;
+            }
+        }
+        catch
+        {
+            // Comparison failed
+        }
+        
+        return false;
     }
 }

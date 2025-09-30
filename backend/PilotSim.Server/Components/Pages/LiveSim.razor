@@ -578,6 +578,12 @@
         hubConnection.On<AtcReplyDto>("atcTransmission", async tx => { lastAtcTransmission = tx?.Transmission; lastExpectedReadbacks = tx?.ExpectedReadback; await InvokeAsync(StateHasChanged); if (!string.IsNullOrEmpty(lastTtsAudioPath)) await PlayAtcAudio(); });
         hubConnection.On<string>("ttsReady", async path => { lastTtsAudioPath = path; await InvokeAsync(StateHasChanged); await PlayAtcAudio(); });
         hubConnection.On<int>("scoreTick", newTotal => { var prev = totalScore; totalScore = newTotal; var computed = newTotal - prev; scoreDelta = computed != 0 ? computed : pendingScoreDelta; pendingScoreDelta = 0; InvokeAsync(StateHasChanged); if (scoreDelta != 0) Task.Delay(3000).ContinueWith(_ => { scoreDelta = 0; InvokeAsync(StateHasChanged); }); });
+        hubConnection.On<object>("sessionComplete", async completion => { 
+            await InvokeAsync(StateHasChanged);
+            // Navigate to debrief after a short delay to show final state
+            await Task.Delay(2000);
+            if (currentSession != null) Navigation.NavigateTo($"/debrief/{currentSession.Id}");
+        });
         await hubConnection.StartAsync();
     }
 
