@@ -1,7 +1,12 @@
-# Coqui TTS dependencies
-TTS==0.22.0
-# Core dependencies (usually auto-installed with TTS)
-numpy>=1.22.0
-torch>=2.0.0
-scipy>=1.9.0
-soundfile>=0.12.1
+# TTS dependencies
+# Option 1: gTTS (simple, compatible with all Python versions, requires internet)
+# This is the recommended option for compatibility
+gTTS>=2.3.0
+
+# Option 2: Coqui TTS (higher quality, offline, requires Python 3.9-3.11)
+# Uncomment the following if using Python 3.9-3.11 for better quality:
+# TTS==0.22.0
+# numpy>=1.22.0
+# torch>=2.0.0
+# scipy>=1.9.0
+# soundfile>=0.12.1
