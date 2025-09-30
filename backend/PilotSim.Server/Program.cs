@@ -51,10 +51,18 @@ builder.Services.AddDbContext<SimDbContext>(options =>
 builder.Services.AddSingleton(new OpenAIClient(builder.Configuration["OPENAI_API_KEY"]));
 // Register OpenAI-backed services
 builder.Services.AddSingleton<ISttService, OpenAiSttService>();
-builder.Services.AddScoped<IInstructorService, OpenAiInstructorService>();
+ 
 builder.Services.AddScoped<IAtcService, OpenAiAtcService>();
 // Use Coqui TTS instead of OpenAI for text-to-speech (no API key required)
 builder.Services.AddSingleton<ITtsService, CoquiTtsService>();
+ 
+builder.Services.AddScoped<PilotSim.Core.IInstructorService, PilotSim.Server.Services.OpenAiInstructorServiceV2>();
+builder.Services.AddScoped<PilotSim.Server.Services.ITrafficAgent, PilotSim.Server.Services.OpenAiTrafficAgentService>();
+builder.Services.AddScoped<PilotSim.Server.Services.IResponderRouter, PilotSim.Server.Services.ResponderRouter>();
+builder.Services.AddScoped<PilotSim.Server.Services.ITurnService, PilotSim.Server.Services.TurnService>();
+// Adapter for backward compatibility with SimulationController
+builder.Services.AddScoped<PilotSim.Core.IAtcService, PilotSim.Server.Services.AtcServiceAdapter>();
+ 
 
 // Add API controllers
 builder.Services.AddControllers();
