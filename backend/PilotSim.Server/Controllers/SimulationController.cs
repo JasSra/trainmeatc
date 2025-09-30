@@ -15,27 +15,21 @@ namespace PilotSim.Server.Controllers;
 public class SimulationController : ControllerBase
 {
     private readonly ISttService _sttService;
-    private readonly IInstructorService _instructorService;
-    private readonly IAtcService _atcService;
     private readonly ITtsService _ttsService;
-    private readonly ITurnService? _turnService;
+    private readonly ITurnService _turnService;
     private readonly SimDbContext _context;
     private readonly IHubContext<LiveHub> _hubContext;
     private readonly ILogger<SimulationController> _logger;
 
     public SimulationController(
         ISttService sttService,
-        IInstructorService instructorService,
-        IAtcService atcService,
         ITtsService ttsService,
         SimDbContext context,
         IHubContext<LiveHub> hubContext,
         ILogger<SimulationController> logger,
-        ITurnService? turnService = null)
+        ITurnService turnService)
     {
         _sttService = sttService;
-        _instructorService = instructorService;
-        _atcService = atcService;
         _ttsService = ttsService;
         _turnService = turnService;
         _context = context;
@@ -71,7 +65,6 @@ public class SimulationController : ControllerBase
         {
             var overallSw = System.Diagnostics.Stopwatch.StartNew();
             var turnStartIso = DateTime.UtcNow.ToString("O");
-            int sttMs = 0, instructorMs = 0, atcMs = 0, ttsMs = 0;
             // Get session and current state
             var session = await _context.Sessions
                 .Include(s => s.Turns)
@@ -81,138 +74,27 @@ public class SimulationController : ControllerBase
             if (session == null)
                 return NotFound("Session not found");
 
-            // Check if scenario uses ScenarioWorkbookV2 format
-            if (_turnService != null && !string.IsNullOrEmpty(session.Scenario?.InitialStateJson))
+            // All scenarios must use ScenarioWorkbookV2 format
+            if (string.IsNullOrEmpty(session.Scenario?.InitialStateJson))
+                return BadRequest("Scenario does not have workbook configuration (InitialStateJson is required)");
+
+            ScenarioWorkbookV2 workbook;
+            try
             {
-                try
-                {
-                    var workbook = JsonSerializer.Deserialize<ScenarioWorkbookV2>(session.Scenario.InitialStateJson);
-                    if (workbook?.Phases?.Any() == true)
-                    {
-                        // Use new TurnService path
-                        return await ProcessTurnWithWorkbookAsync(request, session, workbook, cancellationToken);
-                    }
-                }
-                catch (JsonException)
-                {
-                    // Fall through to legacy processing
-                    _logger.LogWarning("Scenario {ScenarioId} has InitialStateJson but it's not valid ScenarioWorkbookV2 format", session.Scenario.Id);
-                }
+                workbook = JsonSerializer.Deserialize<ScenarioWorkbookV2>(session.Scenario.InitialStateJson)
+                    ?? throw new JsonException("Failed to deserialize workbook");
+                
+                if (workbook.Phases == null || !workbook.Phases.Any())
+                    throw new JsonException("Workbook must have at least one phase");
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogError(ex, "Scenario {ScenarioId} has invalid ScenarioWorkbookV2 format", session.Scenario.Id);
+                return BadRequest($"Invalid ScenarioWorkbookV2 format: {ex.Message}");
             }
 
-            // Legacy processing path
-            // Send partial transcript update if provided
-            if (!string.IsNullOrEmpty(request.PartialTranscript))
-            {
-                await _hubContext.Clients.Group($"session-{request.SessionId}")
-                    .SendAsync("partialTranscript", request.PartialTranscript, cancellationToken);
-            }
-
-            // STT: Transcribe audio (+ persist raw upload for replay)
-            string transcript;
-            string? userAudioPath = null;
-            {
-                var sw = System.Diagnostics.Stopwatch.StartNew();
-                // Persist original audio first so we can open a SEEKABLE FileStream for STT.
-                // Using the non-seekable ReferenceReadStream directly causes retry failures in the OpenAI SDK
-                // ("The inner stream position has changed unexpectedly") when the retry policy re-reads content.
-                var ext = Path.GetExtension(request.Audio.FileName);
-                if (string.IsNullOrWhiteSpace(ext) || ext.Length > 5) ext = ".webm"; // default to webm from MediaRecorder
-                var audioDir = Path.Combine("wwwroot", "useraudio");
-                Directory.CreateDirectory(audioDir);
-                userAudioPath = Path.Combine(audioDir, $"u_{Guid.NewGuid():N}{ext}");
-                await using (var target = System.IO.File.Create(userAudioPath))
-                await using (var upload = request.Audio.OpenReadStream())
-                {
-                    await upload.CopyToAsync(target, cancellationToken);
-                }
-
-                // Use a fresh FileStream (seekable) for STT so OpenAI client retries can rewind.
-                await using var sttStream = System.IO.File.OpenRead(userAudioPath);
-                var publicUserAudioPath = "/" + userAudioPath.Replace("\\", "/");
-                var biasPrompt = "Use Australian aviation terms. Airport identifiers YSSY, YBBN, YMML, YPAD. Words: QNH, runway, squawk, kilo, papa, hPa. Callsign format VH-XXX.";
-                var sttResult = await _sttService.TranscribeAsync(sttStream, biasPrompt, cancellationToken);
-                sw.Stop();
-                sttMs = (int)sw.ElapsedMilliseconds;
-                transcript = sttResult.Text;
-                userAudioPath = publicUserAudioPath; // convert to public path after save
-            }
-
-            // Get current simulation state
-            var currentState = GetCurrentState(session);
-            var difficulty = MapDifficulty(session.Difficulty);
-
-            // Instructor: Score the transmission
-            InstructorVerdict verdict;
-            {
-                var sw = System.Diagnostics.Stopwatch.StartNew();
-                verdict = await _instructorService.ScoreAsync(transcript, currentState, difficulty, cancellationToken);
-                sw.Stop();
-                instructorMs = (int)sw.ElapsedMilliseconds;
-            }
-            
-            // Send instructor verdict
-            await _hubContext.Clients.Group($"session-{request.SessionId}")
-                .SendAsync("instructorVerdict", verdict, cancellationToken);
-
-            // Check if we should block (critical errors)
-            var blocked = verdict.Critical.Any() && !string.IsNullOrEmpty(verdict.BlockReason);
-            if (blocked)
-            {
-                // Save blocked turn without ATC response
-                overallSw.Stop();
-                var totalMsBlocked = (int)overallSw.ElapsedMilliseconds;
-                await SaveTurn(session, transcript, verdict, null, null, userAudioPath, turnStartIso, sttMs, instructorMs, 0, 0, totalMsBlocked, blocked, cancellationToken);
-                return Ok(new TurnResult(transcript, verdict, null!, null));
-            }
-
-            // ATC: Generate response
-            var load = new Load(0.5f, 0.8f, "Professional", "Clear");
-            AtcReply atcResponse;
-            {
-                var sw = System.Diagnostics.Stopwatch.StartNew();
-                atcResponse = await _atcService.NextAsync(transcript, currentState, difficulty, load, cancellationToken);
-                sw.Stop();
-                atcMs = (int)sw.ElapsedMilliseconds;
-            }
-
-            // Send ATC transmission
-            await _hubContext.Clients.Group($"session-{request.SessionId}")
-                .SendAsync("atcTransmission", atcResponse, cancellationToken);
-
-            // TTS: Synthesize ATC response
-            string? ttsAudioPath = null;
-            if (!string.IsNullOrEmpty(atcResponse.Transmission))
-            {
-                var sw = System.Diagnostics.Stopwatch.StartNew();
-                ttsAudioPath = await _ttsService.SynthesizeAsync(
-                    atcResponse.Transmission, 
-                    "professional", 
-                    atcResponse.TtsTone ?? "neutral", 
-                    cancellationToken);
-                sw.Stop();
-                ttsMs = (int)sw.ElapsedMilliseconds;
-                if (!string.IsNullOrEmpty(ttsAudioPath))
-                {
-                    await _hubContext.Clients.Group($"session-{request.SessionId}")
-                        .SendAsync("ttsReady", ttsAudioPath, cancellationToken);
-                }
-            }
-
-            // Update score
-            if (verdict.ScoreDelta != 0)
-            {
-                session.ScoreTotal += verdict.ScoreDelta;
-                await _context.SaveChangesAsync(cancellationToken);
-                await _hubContext.Clients.Group($"session-{request.SessionId}")
-                    .SendAsync("scoreTick", session.ScoreTotal, cancellationToken);
-            }
-
-            overallSw.Stop();
-            var totalMs = (int)overallSw.ElapsedMilliseconds;
-            await SaveTurn(session, transcript, verdict, atcResponse, ttsAudioPath, userAudioPath, turnStartIso, sttMs, instructorMs, atcMs, ttsMs, totalMs, false, cancellationToken);
-
-            return Ok(new TurnResult(transcript, verdict, atcResponse, ttsAudioPath));
+            // Use TurnService path for all scenarios
+            return await ProcessTurnWithWorkbookAsync(request, session, workbook, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -332,108 +214,7 @@ public class SimulationController : ControllerBase
         });
     }
 
-    private object GetCurrentState(Session session)
-    {
-        // Get the last turn's state or initial state
-        var lastTurn = session.Turns.OrderBy(t => t.Idx).LastOrDefault();
-        if (lastTurn?.AtcJson != null)
-        {
-            var atcReply = JsonSerializer.Deserialize<AtcReply>(lastTurn.AtcJson);
-            return atcReply?.NextState ?? GetInitialState(session);
-        }
-
-        return GetInitialState(session);
-    }
-
-    private object GetInitialState(Session session)
-    {
-        if (!string.IsNullOrEmpty(session.Scenario?.InitialStateJson))
-        {
-            return JsonSerializer.Deserialize<object>(session.Scenario.InitialStateJson) 
-                   ?? new { position = "gate", ready = false };
-        }
-
-        return new { position = "gate", ready = false };
-    }
-
-    private async Task SaveTurn(Session session, string transcript, InstructorVerdict verdict, AtcReply? atcResponse, string? ttsAudioPath, string? userAudioPath,
-        string startedUtc, int sttMs, int instructorMs, int atcMs, int ttsMs, int totalMs, bool blocked, CancellationToken cancellationToken)
-    {
-        var turnIndex = session.Turns.Count;
-        
-        var turn = new Turn
-        {
-            SessionId = session.Id,
-            Idx = turnIndex,
-            UserTranscript = transcript,
-            InstructorJson = JsonSerializer.Serialize(verdict),
-            AtcJson = atcResponse != null ? JsonSerializer.Serialize(atcResponse) : null,
-            TtsAudioPath = ttsAudioPath,
-            UserAudioPath = userAudioPath,
-            Verdict = verdict.BlockReason,
-            StartedUtc = startedUtc,
-            SttMs = sttMs,
-            InstructorMs = instructorMs,
-            AtcMs = atcMs,
-            TtsMs = ttsMs,
-            TotalMs = totalMs,
-            ScoreDelta = verdict.ScoreDelta,
-            Blocked = blocked
-        };
-
-        _context.Turns.Add(turn);
-        await _context.SaveChangesAsync(cancellationToken);
-
-        // Persist component breakdown as VerdictDetail rows (Phase 2)
-        if (verdict.Components != null && verdict.Components.Any())
-        {
-            foreach (var comp in verdict.Components)
-            {
-                _context.VerdictDetails.Add(new VerdictDetail
-                {
-                    TurnId = turn.Id,
-                    Code = comp.Code,
-                    Category = comp.Category,
-                    Severity = comp.Severity,
-                    Weight = comp.Weight,
-                    Score = comp.Score,
-                    Delta = comp.Delta,
-                    Detail = comp.Detail,
-                    RubricVersion = verdict.RubricVersion
-                });
-            }
-            await _context.SaveChangesAsync(cancellationToken);
-        }
-
-        // Store normalized and sub-score metrics if provided
-        var metricTime = DateTime.UtcNow.ToString("O");
-        void AddMetric(string key, double? value)
-        {
-            if (value.HasValue)
-            {
-                _context.Metrics.Add(new Metric
-                {
-                    SessionId = session.Id,
-                    K = key,
-                    V = value.Value,
-                    TUtc = metricTime
-                });
-            }
-        }
-
-        AddMetric("turn.normalized", verdict.Normalized);
-        AddMetric("turn.phraseAccuracy", verdict.PhraseAccuracy);
-        AddMetric("turn.ordering", verdict.Ordering);
-        AddMetric("turn.omissions", verdict.Omissions);
-        AddMetric("turn.safety", verdict.Safety);
-        if (verdict.SafetyFlag.HasValue)
-            AddMetric("turn.safetyFlag", verdict.SafetyFlag.Value ? 1.0 : 0.0);
-
-        if (_context.ChangeTracker.HasChanges())
-            await _context.SaveChangesAsync(cancellationToken);
-    }
-
-    // New TurnService-based processing for ScenarioWorkbookV2
+    // TurnService-based processing for ScenarioWorkbookV2
     private async Task<ActionResult<TurnResult>> ProcessTurnWithWorkbookAsync(
         ProcessTurnRequest request, 
         Session session, 
@@ -498,7 +279,7 @@ public class SimulationController : ControllerBase
             PilotSim.Server.Services.TurnResponse turnResponse;
             {
                 var sw = System.Diagnostics.Stopwatch.StartNew();
-                turnResponse = await _turnService!.ProcessTurnAsync(turnRequest, cancellationToken);
+                turnResponse = await _turnService.ProcessTurnAsync(turnRequest, cancellationToken);
                 sw.Stop();
                 turnServiceMs = (int)sw.ElapsedMilliseconds;
             }

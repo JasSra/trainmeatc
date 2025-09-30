@@ -45,11 +45,10 @@ public class SessionSummaryTests
         await context.SaveChangesAsync();
 
         var stt = Mock.Of<ISttService>();
-        var inst = Mock.Of<IInstructorService>();
-        var atc = Mock.Of<IAtcService>();
         var tts = Mock.Of<ITtsService>();
+        var turnService = Mock.Of<PilotSim.Server.Services.ITurnService>();
         var hub = new Mock<IHubContext<PilotSim.Server.Hubs.LiveHub>>();
-        var controller = new SimulationController(stt, inst, atc, tts, context, hub.Object, new NullLogger<SimulationController>());
+        var controller = new SimulationController(stt, tts, context, hub.Object, new NullLogger<SimulationController>(), turnService);
 
         var result = await controller.GetSessionSummaryAsync(1);
         var ok = Assert.IsType<OkObjectResult>(result.Result);
