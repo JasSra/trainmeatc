@@ -5,6 +5,7 @@ using PilotSim.Core;
 using PilotSim.Data;
 using PilotSim.Data.Models;
 using PilotSim.Server.Hubs;
+using PilotSim.Server.Services;
 using System.Text.Json;
 
 namespace PilotSim.Server.Controllers;
@@ -17,6 +18,7 @@ public class SimulationController : ControllerBase
     private readonly IInstructorService _instructorService;
     private readonly IAtcService _atcService;
     private readonly ITtsService _ttsService;
+    private readonly ITurnService? _turnService;
     private readonly SimDbContext _context;
     private readonly IHubContext<LiveHub> _hubContext;
     private readonly ILogger<SimulationController> _logger;
@@ -28,12 +30,14 @@ public class SimulationController : ControllerBase
         ITtsService ttsService,
         SimDbContext context,
         IHubContext<LiveHub> hubContext,
-        ILogger<SimulationController> logger)
+        ILogger<SimulationController> logger,
+        ITurnService? turnService = null)
     {
         _sttService = sttService;
         _instructorService = instructorService;
         _atcService = atcService;
         _ttsService = ttsService;
+        _turnService = turnService;
         _context = context;
         _hubContext = hubContext;
         _logger = logger;
@@ -77,6 +81,26 @@ public class SimulationController : ControllerBase
             if (session == null)
                 return NotFound("Session not found");
 
+            // Check if scenario uses ScenarioWorkbookV2 format
+            if (_turnService != null && !string.IsNullOrEmpty(session.Scenario?.InitialStateJson))
+            {
+                try
+                {
+                    var workbook = JsonSerializer.Deserialize<ScenarioWorkbookV2>(session.Scenario.InitialStateJson);
+                    if (workbook?.Phases?.Any() == true)
+                    {
+                        // Use new TurnService path
+                        return await ProcessTurnWithWorkbookAsync(request, session, workbook, cancellationToken);
+                    }
+                }
+                catch (JsonException)
+                {
+                    // Fall through to legacy processing
+                    _logger.LogWarning("Scenario {ScenarioId} has InitialStateJson but it's not valid ScenarioWorkbookV2 format", session.Scenario.Id);
+                }
+            }
+
+            // Legacy processing path
             // Send partial transcript update if provided
             if (!string.IsNullOrEmpty(request.PartialTranscript))
             {
@@ -407,5 +431,314 @@ public class SimulationController : ControllerBase
 
         if (_context.ChangeTracker.HasChanges())
             await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    // New TurnService-based processing for ScenarioWorkbookV2
+    private async Task<ActionResult<TurnResult>> ProcessTurnWithWorkbookAsync(
+        ProcessTurnRequest request, 
+        Session session, 
+        ScenarioWorkbookV2 workbook,
+        CancellationToken cancellationToken)
+    {
+        var overallSw = System.Diagnostics.Stopwatch.StartNew();
+        var turnStartIso = DateTime.UtcNow.ToString("O");
+        int sttMs = 0, turnServiceMs = 0, ttsMs = 0;
+
+        try
+        {
+            // STT: Transcribe audio
+            string transcript;
+            string? userAudioPath = null;
+            {
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                var ext = Path.GetExtension(request.Audio.FileName);
+                if (string.IsNullOrWhiteSpace(ext) || ext.Length > 5) ext = ".webm";
+                var audioDir = Path.Combine("wwwroot", "useraudio");
+                Directory.CreateDirectory(audioDir);
+                userAudioPath = Path.Combine(audioDir, $"u_{Guid.NewGuid():N}{ext}");
+                
+                await using (var target = System.IO.File.Create(userAudioPath))
+                await using (var upload = request.Audio.OpenReadStream())
+                {
+                    await upload.CopyToAsync(target, cancellationToken);
+                }
+
+                await using var sttStream = System.IO.File.OpenRead(userAudioPath);
+                var publicUserAudioPath = "/" + userAudioPath.Replace("\\", "/");
+                var biasPrompt = "Use Australian aviation terms. Airport identifiers YSSY, YBBN, YMML, YPAD. Words: QNH, runway, squawk, kilo, papa, hPa. Callsign format VH-XXX.";
+                var sttResult = await _sttService.TranscribeAsync(sttStream, biasPrompt, cancellationToken);
+                sw.Stop();
+                sttMs = (int)sw.ElapsedMilliseconds;
+                transcript = sttResult.Text;
+                userAudioPath = publicUserAudioPath;
+            }
+
+            // Get current state and phase
+            var currentState = GetCurrentStateWorkbook(session);
+            var currentPhaseId = ExtractPhaseId(currentState);
+            var phase = workbook.Phases.FirstOrDefault(p => p.Id == currentPhaseId) ?? workbook.Phases.First();
+            
+            // Build TurnRequest
+            var turnRequest = new PilotSim.Server.Services.TurnRequest
+            {
+                UserId = session.UserId?.ToString() ?? "",
+                SessionId = session.Id.ToString(),
+                TurnIndex = session.Turns.Count,
+                PhaseId = phase.Id,
+                Callsign = ExtractCallsign(workbook, session),
+                Transcript = transcript,
+                Workbook = workbook,
+                CurrentState = currentState,
+                Difficulty = MapDifficultyProfile(session.Difficulty),
+                Seed = session.Scenario?.Seed,
+                ControllerPersona = null
+            };
+
+            // Process turn with TurnService
+            PilotSim.Server.Services.TurnResponse turnResponse;
+            {
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                turnResponse = await _turnService!.ProcessTurnAsync(turnRequest, cancellationToken);
+                sw.Stop();
+                turnServiceMs = (int)sw.ElapsedMilliseconds;
+            }
+
+            // Send instructor verdict if available
+            if (turnResponse.Instructor != null)
+            {
+                await _hubContext.Clients.Group($"session-{request.SessionId}")
+                    .SendAsync("instructorVerdict", turnResponse.Instructor, cancellationToken);
+            }
+
+            // Send ATC transmission from timeline
+            var atcTransmission = turnResponse.Timeline.FirstOrDefault(t => t.Source == "ATC");
+            AtcReply? atcReply = null;
+            if (atcTransmission != null)
+            {
+                atcReply = new AtcReply(
+                    atcTransmission.Text,
+                    turnResponse.Atc?.ExpectedReadback ?? new List<string>(),
+                    turnResponse.UpdatedState,
+                    turnResponse.Atc?.HoldShort,
+                    atcTransmission.Tone
+                );
+                await _hubContext.Clients.Group($"session-{request.SessionId}")
+                    .SendAsync("atcTransmission", atcReply, cancellationToken);
+            }
+
+            // TTS: Synthesize first transmission
+            string? ttsAudioPath = null;
+            if (atcTransmission != null && !string.IsNullOrEmpty(atcTransmission.Text))
+            {
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                ttsAudioPath = await _ttsService.SynthesizeAsync(
+                    atcTransmission.Text,
+                    atcTransmission.Persona ?? "professional",
+                    atcTransmission.Tone,
+                    cancellationToken);
+                sw.Stop();
+                ttsMs = (int)sw.ElapsedMilliseconds;
+                
+                if (!string.IsNullOrEmpty(ttsAudioPath))
+                {
+                    await _hubContext.Clients.Group($"session-{request.SessionId}")
+                        .SendAsync("ttsReady", ttsAudioPath, cancellationToken);
+                }
+            }
+
+            // Update score if not blocked
+            var verdict = turnResponse.Instructor;
+            if (verdict != null && !turnResponse.Blocked && verdict.ScoreDelta != 0)
+            {
+                session.ScoreTotal += verdict.ScoreDelta;
+                await _context.SaveChangesAsync(cancellationToken);
+                await _hubContext.Clients.Group($"session-{request.SessionId}")
+                    .SendAsync("scoreTick", session.ScoreTotal, cancellationToken);
+            }
+
+            overallSw.Stop();
+            var totalMs = (int)overallSw.ElapsedMilliseconds;
+
+            // Save turn
+            await SaveTurnWorkbook(
+                session, transcript, verdict, atcReply, ttsAudioPath, userAudioPath,
+                turnStartIso, sttMs, turnServiceMs, ttsMs, totalMs, 
+                turnResponse.Blocked, turnResponse.UpdatedState, cancellationToken);
+
+            return Ok(new TurnResult(transcript, verdict ?? new InstructorVerdict(
+                new List<string>(), new List<string>(), null, 0.5, 0, ""), atcReply!, ttsAudioPath));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to process turn with workbook for session {SessionId}", request.SessionId);
+            return StatusCode(500, "Internal server error processing turn");
+        }
+    }
+
+    private static PilotSim.Server.Services.DifficultyProfile MapDifficultyProfile(string? difficulty)
+    {
+        var level = (difficulty ?? "Basic").Trim().ToLowerInvariant() switch
+        {
+            "basic" => PilotSim.Server.Services.DifficultyLevel.Easy,
+            "intermediate" or "medium" => PilotSim.Server.Services.DifficultyLevel.Medium,
+            _ => PilotSim.Server.Services.DifficultyLevel.Hard
+        };
+
+        return new PilotSim.Server.Services.DifficultyProfile
+        {
+            Level = level,
+            ParsingStrictness = level == PilotSim.Server.Services.DifficultyLevel.Easy ? 0.4 : 
+                               level == PilotSim.Server.Services.DifficultyLevel.Medium ? 0.6 : 0.8,
+            Congestion = level == PilotSim.Server.Services.DifficultyLevel.Easy ? 0.2 :
+                        level == PilotSim.Server.Services.DifficultyLevel.Medium ? 0.4 : 0.6,
+            Variability = level == PilotSim.Server.Services.DifficultyLevel.Easy ? 0.1 :
+                         level == PilotSim.Server.Services.DifficultyLevel.Medium ? 0.3 : 0.5
+        };
+    }
+
+    private JsonElement GetCurrentStateWorkbook(Session session)
+    {
+        var lastTurn = session.Turns.OrderBy(t => t.Idx).LastOrDefault();
+        if (lastTurn?.AtcJson != null)
+        {
+            try
+            {
+                var atcReply = JsonSerializer.Deserialize<AtcReply>(lastTurn.AtcJson);
+                if (atcReply?.NextState != null)
+                {
+                    return JsonSerializer.SerializeToElement(atcReply.NextState);
+                }
+            }
+            catch { }
+        }
+
+        return GetInitialStateWorkbook(session);
+    }
+
+    private JsonElement GetInitialStateWorkbook(Session session)
+    {
+        if (!string.IsNullOrEmpty(session.Scenario?.InitialStateJson))
+        {
+            try
+            {
+                var workbook = JsonSerializer.Deserialize<ScenarioWorkbookV2>(session.Scenario.InitialStateJson);
+                if (workbook != null)
+                {
+                    // Return a state element with the first phase
+                    return JsonSerializer.SerializeToElement(new
+                    {
+                        phase = workbook.Phases.FirstOrDefault()?.Id ?? "initial",
+                        position = "gate",
+                        ready = false
+                    });
+                }
+            }
+            catch { }
+        }
+
+        return JsonSerializer.SerializeToElement(new { phase = "initial", position = "gate", ready = false });
+    }
+
+    private static string ExtractPhaseId(JsonElement state)
+    {
+        if (state.TryGetProperty("phase", out var phase))
+        {
+            return phase.GetString() ?? "initial";
+        }
+        return "initial";
+    }
+
+    private static string ExtractCallsign(ScenarioWorkbookV2 workbook, Session session)
+    {
+        // Try to get callsign from workbook aircraft or generate one
+        var aircraft = workbook.Inputs?.Aircraft;
+        if (!string.IsNullOrEmpty(aircraft))
+        {
+            return $"VH-{aircraft.ToUpper().Take(3).Concat(new[] { (char)('A' + (session.Id % 26)) })}";
+        }
+        return $"VH-{session.Id:000}";
+    }
+
+    private async Task SaveTurnWorkbook(
+        Session session, string transcript, InstructorVerdict? verdict, AtcReply? atcResponse, 
+        string? ttsAudioPath, string? userAudioPath, string startedUtc, int sttMs, 
+        int turnServiceMs, int ttsMs, int totalMs, bool blocked, JsonElement updatedState,
+        CancellationToken cancellationToken)
+    {
+        var turnIndex = session.Turns.Count;
+        
+        var turn = new Turn
+        {
+            SessionId = session.Id,
+            Idx = turnIndex,
+            UserTranscript = transcript,
+            InstructorJson = verdict != null ? JsonSerializer.Serialize(verdict) : null,
+            AtcJson = atcResponse != null ? JsonSerializer.Serialize(atcResponse) : null,
+            TtsAudioPath = ttsAudioPath,
+            UserAudioPath = userAudioPath,
+            Verdict = verdict?.BlockReason,
+            StartedUtc = startedUtc,
+            SttMs = sttMs,
+            InstructorMs = turnServiceMs, // TurnService includes instructor + ATC time
+            AtcMs = 0, // Already included in TurnService time
+            TtsMs = ttsMs,
+            TotalMs = totalMs,
+            ScoreDelta = verdict?.ScoreDelta ?? 0,
+            Blocked = blocked
+        };
+
+        _context.Turns.Add(turn);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        // Persist component breakdown if available
+        if (verdict?.Components != null && verdict.Components.Any())
+        {
+            foreach (var comp in verdict.Components)
+            {
+                _context.VerdictDetails.Add(new VerdictDetail
+                {
+                    TurnId = turn.Id,
+                    Code = comp.Code,
+                    Category = comp.Category,
+                    Severity = comp.Severity,
+                    Weight = comp.Weight,
+                    Score = comp.Score,
+                    Delta = comp.Delta,
+                    Detail = comp.Detail,
+                    RubricVersion = verdict.RubricVersion
+                });
+            }
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        // Store metrics
+        var metricTime = DateTime.UtcNow.ToString("O");
+        if (verdict != null)
+        {
+            void AddMetric(string key, double? value)
+            {
+                if (value.HasValue)
+                {
+                    _context.Metrics.Add(new Metric
+                    {
+                        SessionId = session.Id,
+                        K = key,
+                        V = value.Value,
+                        TUtc = metricTime
+                    });
+                }
+            }
+
+            AddMetric("turn.normalized", verdict.Normalized);
+            AddMetric("turn.phraseAccuracy", verdict.PhraseAccuracy);
+            AddMetric("turn.ordering", verdict.Ordering);
+            AddMetric("turn.omissions", verdict.Omissions);
+            AddMetric("turn.safety", verdict.Safety);
+            if (verdict.SafetyFlag.HasValue)
+                AddMetric("turn.safetyFlag", verdict.SafetyFlag.Value ? 1.0 : 0.0);
+
+            if (_context.ChangeTracker.HasChanges())
+                await _context.SaveChangesAsync(cancellationToken);
+        }
     }
 }
