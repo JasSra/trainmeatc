@@ -80,6 +80,7 @@ builder.Services.AddScoped<IAirserviceChartsService, AirserviceChartsService>();
 // Add MSFS SimConnect integration services
 builder.Services.AddScoped<ISimConnectService, SimConnectService>();
 builder.Services.AddScoped<IPilotProfileService, PilotProfileService>();
+builder.Services.AddScoped<IWorkbookResolver, WorkbookResolver>();
 
 
 var app = builder.Build();

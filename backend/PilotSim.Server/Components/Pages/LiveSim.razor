@@ -172,6 +172,8 @@
                                 <small class="text-muted">FR: @scenario.FlightRules | WX: @(scenario.WeatherConditions ?? "N/A") | Traffic: @(scenario.TrafficDensity ?? "N/A")</small>
                                 @if (pilotProfile?.IsLive == true)
                                 {<small class="text-muted">Pos: @pilotProfile.CurrentLatitude?.ToString("F3"), @pilotProfile.CurrentLongitude?.ToString("F3") Alt @pilotProfile.CurrentAltitude?.ToString("F0")ft</small>}
+                                @if (turnState?.ConflictImminent == true)
+                                {<span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle me-1"></i>Conflict  &lt;90s</span>}
                             </div>
                             <div class="col-md-4 text-end">
                                 <div class="score-display">
@@ -185,101 +187,88 @@
                     </div>
                 </div>
 
-                <!-- Guidance Cards Row -->
+                <!-- Guidance & Phase Row -->
                 <div class="col-12">
                     <div class="row g-3">
-                        <div class="col-md-4">
+                        <div class="col-lg-3">
                             <div class="card h-100 shadow-sm">
-                                <div class="card-header py-2"><i class="bi bi-bullseye me-1"></i>Lesson Focus</div>
+                                <div class="card-header py-2"><i class="bi bi-crosshair me-1"></i>Current Phase</div>
                                 <div class="card-body small">
-                                    <strong>@(scenario.Kind ?? scenario.OperationType ?? "Training")</strong>
-                                    <p class="mb-2">@GetLessonSummary()</p>
-                                    @if (learningObjectives.Any())
+                                    @if (currentPhase != null)
                                     {
-                                        <ul class="mb-0 ps-3">
-                                            @foreach (var lo in learningObjectives.Take(3)) { <li>@lo</li> }
+                                        <div><strong>ID:</strong> @currentPhase.Id</div>
+                                        @if (!string.IsNullOrEmpty(currentPhase.Name)) { <div><strong>Name:</strong> @currentPhase.Name</div> }
+                                        <div><strong>Freq:</strong> @(currentPhase.PrimaryFreqMhz>0? currentPhase.PrimaryFreqMhz.ToString("0.000")+" MHz":"n/a")</div>
+                                        <div><strong>Speaker:</strong> @(turnState?.Speaker ?? "-")</div>
+                                        @if (!string.IsNullOrEmpty(turnState?.BranchActivated)) { <div><strong>Branch:</strong> @turnState.BranchActivated</div> }
+                                        @if (turnState?.Blocked == true) { <div class="text-warning"><i class="bi bi-shield-exclamation me-1"></i>Blocked: @turnState.BlockReason</div> }
+                                        @if (turnState?.SafetyGateCode != null) { <div class="text-danger"><i class="bi bi-exclamation-octagon me-1"></i>@turnState.SafetyGateCode</div> }
+                                        <hr />
+                                        @if (turnState?.MandatoryMissing?.Any() == true)
+                                        {
+                                            <div class="mb-1"><strong>Missing:</strong></div>
+                                            <ul class="ps-3 mb-2">
+                                                @foreach (var m in turnState.MandatoryMissing.Take(5)) { <li>@m</li> }
+                                            </ul>
+                                        }
+                                        <div><strong>Coverage:</strong> @((turnState?.ReadbackCoverage ?? latestVerdict?.Normalized)?.ToString("0.00"))</div>
+                                        <div><strong>Tx Count:</strong> @(turnState?.TransmissionCount ?? 0)</div>
+                                    }
+                                    else { <div class="text-muted">Phase data pending...</div> }
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-3">
+                            <div class="card h-100 shadow-sm">
+                                <div class="card-header py-2"><i class="bi bi-cloud me-1"></i>Context</div>
+                                <div class="card-body small">
+                                    <div><strong>Airport:</strong> @scenario.AirportIcao</div>
+                                    <div><strong>Tower:</strong> @(workbook?.ContextResolved?.Airport?.TowerActive == true ? "Active" : "Inactive")</div>
+                                    <div><strong>Runway:</strong> @(workbook?.ContextResolved?.RunwayInUse ?? "-" )</div>
+                                    <div><strong>Traffic:</strong> @(workbook?.ContextResolved?.TrafficSnapshot?.Density ?? "-" )</div>
+                                    @if (turnState?.ConflictImminent == true) { <div class="text-warning"><i class="bi bi-radar"></i> Conflict Risk</div> }
+                                    @if (currentPhase?.RequiredComponents?.Any() == true)
+                                    {
+                                        <hr />
+                                        <div><strong>Required:</strong></div>
+                                        <ul class="ps-3 mb-0">
+                                            @foreach (var r in currentPhase.RequiredComponents.Take(5)) { <li>@r</li> }
                                         </ul>
                                     }
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-lg-3">
                             <div class="card h-100 shadow-sm">
-                                <div class="card-header py-2"><i class="bi bi-crosshair me-1"></i>Current Situation</div>
+                                <div class="card-header py-2"><i class="bi bi-lightbulb me-1"></i>Instructor Tips</div>
                                 <div class="card-body small">
-                                    <div><strong>Airport:</strong> @scenario.AirportIcao @if (scenario.Airport != null){<span class="text-muted">- @scenario.Airport.Name</span>}</div>
-                                    <div><strong>Diff:</strong> @(scenario.Difficulty ?? "Basic")</div>
-                                    <div><strong>WX:</strong> @(scenario.WeatherConditions ?? "N/A")</div>
-                                    <div><strong>Traffic:</strong> @(scenario.TrafficDensity ?? "N/A")</div>
-                                    @if (pilotProfile?.IsLive == true)
+                                    @if (latestVerdict != null)
                                     {
-                                        <div class="mt-2"><strong>Position:</strong><br />Lat @pilotProfile.CurrentLatitude?.ToString("F3"), Lon @pilotProfile.CurrentLongitude?.ToString("F3")<br />Alt @pilotProfile.CurrentAltitude?.ToString("F0")ft Phase @pilotProfile.CurrentPhase</div>
+                                        @if (latestVerdict.Critical?.Any() == true)
+                                        {<div class="text-danger mb-2"><strong>Critical:</strong><ul class="ps-3 mb-0">@foreach (var c in latestVerdict.Critical.Take(3)){<li>@c</li>}</ul></div>}
+                                        @if (latestVerdict.Improvements?.Any() == true)
+                                        {<div class="text-info mb-2"><strong>Improve:</strong><ul class="ps-3 mb-0">@foreach (var c in latestVerdict.Improvements.Take(3)){<li>@c</li>}</ul></div>}
+                                        @if (!string.IsNullOrEmpty(latestVerdict.ExemplarReadback)) { <div class="mt-2"><strong>Exemplar:</strong><br />@latestVerdict.ExemplarReadback</div> }
                                     }
-                                    else
-                                    {
-                                        <div class="mt-2 text-muted">No live position feed.</div>
-                                    }
+                                    else { <div class="text-muted">Awaiting first turn...</div> }
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-lg-3">
                             <div class="card h-100 shadow-sm">
-                                <div class="card-header py-2"><i class="bi bi-lightning-charge me-1"></i>Next Action</div>
+                                <div class="card-header py-2"><i class="bi bi-diagram-3 me-1"></i>Phase Progress</div>
                                 <div class="card-body small">
-                                    @if (isWorkbookScenario && currentPhase != null)
+                                    @if (workbook?.Phases?.Any() == true)
                                     {
-                                        <div class="mb-2">
-                                            <strong class="text-primary">Phase:</strong> @currentPhase.Id
-                                            @if (!string.IsNullOrEmpty(currentPhase.Name))
+                                        <div class="d-flex flex-wrap gap-1">
+                                            @foreach (var p in workbook.Phases)
                                             {
-                                                <div class="text-muted small">@currentPhase.Name</div>
+                                                var active = p.Id == currentPhaseId;
+                                                <span class="badge @(active?"bg-primary":"bg-secondary")">@p.Id</span>
                                             }
                                         </div>
-                                        @if (currentPhase.RequiredComponents?.Any() == true)
-                                        {
-                                            <div class="mb-2">
-                                                <small class="text-muted">Required elements:</small>
-                                                <ul class="small ps-3 mb-0">
-                                                    @foreach (var req in currentPhase.RequiredComponents.Take(3))
-                                                    {
-                                                        <li>@req</li>
-                                                    }
-                                                </ul>
-                                            </div>
-                                        }
                                     }
-                                    @if (isRecording)
-                                    {
-                                        <div class="text-danger"><i class="bi bi-mic-fill me-1"></i>Transmit clearly...</div>
-                                    }
-                                    else if (isProcessingTurn)
-                                    {
-                                        <div class="d-flex align-items-center"><div class="spinner-border spinner-border-sm me-2" role="status"></div>Evaluating your last transmission...</div>
-                                    }
-                                    else if (isBlocked && !string.IsNullOrEmpty(blockReason))
-                                    {
-                                        <div class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>@blockReason</div>
-                                        <button class="btn btn-outline-secondary btn-sm mt-2" @onclick="ClearBlock"><i class="bi bi-arrow-clockwise me-1"></i>Retry</button>
-                                    }
-                                    else if (lastExpectedReadbacks?.Any() == true)
-                                    {
-                                        <div class="mb-1"><strong>Expected Readback:</strong></div>
-                                        <ul class="ps-3 mb-2">
-                                            @foreach (var rb in lastExpectedReadbacks.Take(3)) { <li>@rb</li> }
-                                        </ul>
-                                        <div class="text-muted">Match required elements & callsign.</div>
-                                    }
-                                    else if (latestVerdict?.Improvements?.Any() == true)
-                                    {
-                                        <div class="mb-1"><strong>Improve:</strong></div>
-                                        <ul class="ps-3 mb-0">
-                                            @foreach (var imp in latestVerdict.Improvements.Take(3)) { <li>@imp</li> }
-                                        </ul>
-                                    }
-                                    else
-                                    {
-                                        <div>@GetInitialPrompt()</div>
-                                    }
+                                    else { <div class="text-muted">No phase data.</div> }
                                 </div>
                             </div>
                         </div>
@@ -321,6 +310,23 @@
                         </div>
                         @if (isPartialTranscript){<small class="text-info"><i class="bi bi-typing me-1"></i>Processing speech...</small>}
                     </div>
+                    <div class="aviation-panel">
+                        <div class="aviation-panel-header"><i class="bi bi-collection"></i>Timeline</div>
+                        <div class="small p-2" style="max-height:220px;overflow:auto;">
+                            @if (timeline.Any())
+                            {
+                                foreach (var tx in timeline.TakeLast(12))
+                                {
+                                    <div class="mb-2">
+                                        <div><strong>@tx.Source</strong> <span class="text-muted">(@tx.FreqMhz.ToString("0.000") MHz)</span></div>
+                                        <div>@tx.Text</div>
+                                        <div class="text-muted"><small>@tx.Tone / @tx.Persona</small></div>
+                                    </div>
+                                }
+                            }
+                            else { <div class="text-muted">No transmissions yet.</div> }
+                        </div>
+                    </div>
                 </div>
 
                 <div class="col-md-6">
@@ -330,13 +336,13 @@
                         {
                             <div class="atc-transmission p-3 mb-3">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <strong class="text-aviation-primary">Melbourne Tower:</strong>
+                                    <strong class="text-aviation-primary">Transmission:</strong>
                                     <button class="btn btn-sm btn-outline-secondary" @onclick="PlayAtcAudio"><i class="bi bi-volume-up"></i></button>
                                 </div>
                                 <p class="mb-0">@lastAtcTransmission</p>
                             </div>
                         }
-                        else { <div class="text-muted p-3"><i class="bi bi-headphones me-2"></i>Listening for ATC communications...</div> }
+                        else { <div class="text-muted p-3"><i class="bi bi-headphones me-2"></i>Listening for transmissions...</div> }
                     </div>
                     <div class="aviation-panel">
                         <div class="aviation-panel-header"><i class="bi bi-clipboard-check"></i>Instructor Feedback</div>
@@ -530,6 +536,10 @@
     private string currentPhaseId = "initial";
     private bool isWorkbookScenario = false;
 
+    // Extended runtime state
+    private List<TransmissionDto> timeline = new();
+    private TurnStateDto? turnState;
+
     private HubConnection? hubConnection;
     private bool isRecording; private bool isBlocked; private string? blockReason;
     private string currentTranscript = string.Empty; private bool isPartialTranscript;
@@ -600,6 +610,26 @@
                 if (hubConnection?.State == HubConnectionState.Connected) await hubConnection.InvokeAsync("JoinSession", sessionId.ToString());
                 await SetupAudioCallbacks();
                 ResetSessionState();
+                // Fetch resolved workbook for this session (new endpoint)
+                try
+                {
+                    var wbResp = await Http.GetAsync($"/api/session/{sessionId}/workbook");
+                    if (wbResp.IsSuccessStatusCode)
+                    {
+                        var wbJson = await wbResp.Content.ReadAsStringAsync();
+                        workbook = JsonSerializer.Deserialize<ScenarioWorkbookV2>(wbJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        if (workbook?.Phases?.Any() == true)
+                        {
+                            isWorkbookScenario = true;
+                            currentPhase = workbook.Phases.First();
+                            currentPhaseId = currentPhase.Id;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to fetch resolved workbook: {ex.Message}");
+                }
             }
             else { blockReason = $"Unable to start session ({response.StatusCode})."; isBlocked = true; }
         }
@@ -614,7 +644,7 @@
 
     private void ResetSessionState()
     {
-        completedTurns.Clear(); latestVerdict = null; lastAtcTransmission = null; lastExpectedReadbacks = null; currentTranscript = string.Empty; isPartialTranscript = false; isBlocked = false; blockReason = null; totalScore = 0; scoreDelta = 0; pendingScoreDelta = 0; isProcessingTurn = false; audioLevel = 0; lastTtsAudioPath = null;
+        completedTurns.Clear(); latestVerdict = null; lastAtcTransmission = null; lastExpectedReadbacks = null; currentTranscript = string.Empty; isPartialTranscript = false; isBlocked = false; blockReason = null; totalScore = 0; scoreDelta = 0; pendingScoreDelta = 0; isProcessingTurn = false; audioLevel = 0; lastTtsAudioPath = null; timeline.Clear(); turnState = null;
     }
 
     private async Task StartRecording()
@@ -660,34 +690,22 @@
                 latestVerdict = turnResult.Verdict; pendingScoreDelta = turnResult.Verdict.ScoreDelta; scoreDelta = pendingScoreDelta;
                 if (!string.IsNullOrWhiteSpace(turnResult.Verdict.BlockReason) && turnResult.Verdict.Critical?.Any() == true){ blockReason = turnResult.Verdict.BlockReason; isBlocked = true; } else { blockReason = null; isBlocked = false; }
             }
+            // Extended: update timeline & phase
+            if (turnResult.Timeline != null && turnResult.Timeline.Any())
+            {
+                timeline.AddRange(turnResult.Timeline);
+                lastAtcTransmission = turnResult.Timeline.FirstOrDefault(t => t.Source == "ATC")?.Text ?? lastAtcTransmission;
+            }
+            if (!string.IsNullOrEmpty(turnResult.PhaseId)) currentPhaseId = turnResult.NextPhaseId ?? turnResult.PhaseId;
+            if (isWorkbookScenario && workbook != null)
+            {
+                currentPhase = workbook.Phases.FirstOrDefault(p => p.Id == currentPhaseId) ?? currentPhase;
+            }
+            if (turnResult.TurnState != null) turnState = turnResult.TurnState;
             if (turnResult.AtcResponse != null) 
             { 
                 lastAtcTransmission = turnResult.AtcResponse.Transmission; 
                 lastExpectedReadbacks = turnResult.AtcResponse.ExpectedReadback; 
-                
-                // Update phase if workbook scenario and phase changed
-                if (isWorkbookScenario && turnResult.AtcResponse.NextState != null && workbook != null)
-                {
-                    try
-                    {
-                        var nextStateJson = JsonSerializer.Serialize(turnResult.AtcResponse.NextState);
-                        var nextState = JsonSerializer.Deserialize<JsonElement>(nextStateJson);
-                        if (nextState.TryGetProperty("phase", out var phaseElement))
-                        {
-                            var newPhaseId = phaseElement.GetString();
-                            if (!string.IsNullOrEmpty(newPhaseId) && newPhaseId != currentPhaseId)
-                            {
-                                currentPhaseId = newPhaseId;
-                                currentPhase = workbook.Phases.FirstOrDefault(p => p.Id == newPhaseId);
-                                Console.WriteLine($"Phase changed to: {currentPhaseId}");
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Failed to update phase: {ex.Message}");
-                    }
-                }
             }
             if (!string.IsNullOrEmpty(turnResult.TtsAudioPath)) { lastTtsAudioPath = turnResult.TtsAudioPath; await PlayAtcAudio(); }
             isProcessingTurn = false;
@@ -726,10 +744,12 @@
 
     public async ValueTask DisposeAsync(){ if (hubConnection is not null) await hubConnection.DisposeAsync(); dotNetRef?.Dispose(); }
 
-    // DTOs
+    // DTOs (extended)
     private class InstructorVerdictDto { public List<string>? Critical { get; set; } public List<string>? Improvements { get; set; } public string? ExemplarReadback { get; set; } public double Normalized { get; set; } public int ScoreDelta { get; set; } public string? BlockReason { get; set; } public List<ComponentScoreDto>? Components { get; set; } public double? PhraseAccuracy { get; set; } public double? Ordering { get; set; } public double? Omissions { get; set; } public double? Safety { get; set; } public bool? SafetyFlag { get; set; } public string? RubricVersion { get; set; } }
     private class ComponentScoreDto { public string Code { get; set; } = string.Empty; public string Category { get; set; } = string.Empty; public string Severity { get; set; } = string.Empty; public double? Weight { get; set; } public double? Score { get; set; } public double? Delta { get; set; } public string? Detail { get; set; } }
     private class AtcReplyDto { public string? Transmission { get; set; } public List<string>? ExpectedReadback { get; set; } public JsonElement? NextState { get; set; } public bool? HoldShort { get; set; } public string? TtsTone { get; set; } }
-    private class TurnResultDto { public string? Transcript { get; set; } public InstructorVerdictDto? Verdict { get; set; } public AtcReplyDto? AtcResponse { get; set; } public string? TtsAudioPath { get; set; } }
+    private class TransmissionDto { public string Source { get; set; } = string.Empty; public string Text { get; set; } = string.Empty; public double FreqMhz { get; set; } public string Tone { get; set; } = string.Empty; public string Persona { get; set; } = string.Empty; public Dictionary<string,string>? Attributes { get; set; } }
+    private class TurnStateDto { public string PhaseId { get; set; } = string.Empty; public Dictionary<string, object>? ParsedSlots { get; set; } public double? ReadbackCoverage { get; set; } public List<string> MandatoryMissing { get; set; } = new(); public double? LatencyS { get; set; } public int Overlaps { get; set; } public string? SafetyGateCode { get; set; } public string? BranchActivated { get; set; } public string Speaker { get; set; } = string.Empty; public int TransmissionCount { get; set; } public bool ConflictImminent { get; set; } public bool Blocked { get; set; } public string? BlockReason { get; set; } }
+    private class TurnResultDto { public string? Transcript { get; set; } public InstructorVerdictDto? Verdict { get; set; } public AtcReplyDto? AtcResponse { get; set; } public string? TtsAudioPath { get; set; } public string? PhaseId { get; set; } public string? NextPhaseId { get; set; } public List<TransmissionDto>? Timeline { get; set; } public TurnStateDto? TurnState { get; set; } }
     private record DeviceTestResult(bool Success, string Message);
 }

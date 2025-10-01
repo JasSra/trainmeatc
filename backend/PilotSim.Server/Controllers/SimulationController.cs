@@ -38,7 +38,27 @@ public class SimulationController : ControllerBase
     }
 
     public record ProcessTurnRequest(int SessionId, IFormFile Audio, string? PartialTranscript = null);
-    public record TurnResult(string Transcript, InstructorVerdict Verdict, AtcReply AtcResponse, string? TtsAudioPath);
+
+    // Extended TurnResult now includes routing/timeline/state for richer UI rendering
+    public record TurnResult(
+        string Transcript,
+        InstructorVerdict Verdict,
+        AtcReply? AtcResponse,
+        string? TtsAudioPath,
+        string PhaseId,
+        string NextPhaseId,
+        IReadOnlyList<TransmissionDto> Timeline,
+        TurnState? TurnState
+    );
+
+    public record TransmissionDto(
+        string Source,
+        string Text,
+        double FreqMhz,
+        string Tone,
+        string Persona,
+        IDictionary<string, string>? Attributes
+    );
 
     // Map flexible difficulty strings coming from scenarios/UI to internal enum
     private static Difficulty MapDifficulty(string? value)
@@ -284,17 +304,18 @@ public class SimulationController : ControllerBase
                 turnServiceMs = (int)sw.ElapsedMilliseconds;
             }
 
-            // Send instructor verdict if available
+            // Send instructor verdict if available (real-time UI updates separate from aggregated TurnResult)
             if (turnResponse.Instructor != null)
             {
                 await _hubContext.Clients.Group($"session-{request.SessionId}")
                     .SendAsync("instructorVerdict", turnResponse.Instructor, cancellationToken);
             }
 
-            // Send ATC transmission from timeline
-            var atcTransmission = turnResponse.Timeline.FirstOrDefault(t => t.Source == "ATC");
+            // Send ATC transmission from timeline (first ATC or traffic for backward compatibility)
+            var atcTransmission = turnResponse.Timeline.FirstOrDefault(t => t.Source == "ATC")
+                ?? turnResponse.Timeline.FirstOrDefault(t => t.Source.StartsWith("TRAFFIC"));
             AtcReply? atcReply = null;
-            if (atcTransmission != null)
+            if (atcTransmission != null && turnResponse.Atc != null)
             {
                 atcReply = new AtcReply(
                     atcTransmission.Text,
@@ -344,7 +365,7 @@ public class SimulationController : ControllerBase
             await SaveTurnWorkbook(
                 session, transcript, verdict, atcReply, ttsAudioPath, userAudioPath,
                 turnStartIso, sttMs, turnServiceMs, ttsMs, totalMs, 
-                turnResponse.Blocked, turnResponse.UpdatedState, cancellationToken);
+                turnResponse.Blocked, turnResponse.UpdatedState, turnResponse.TurnState, cancellationToken);
 
             // Step 13: Completion evaluation (check success/fail conditions)
             var completionResult = EvaluateCompletion(workbook, session, turnResponse);
@@ -365,8 +386,29 @@ public class SimulationController : ControllerBase
                     request.SessionId, completionResult.Outcome);
             }
 
-            return Ok(new TurnResult(transcript, verdict ?? new InstructorVerdict(
-                new List<string>(), new List<string>(), null, 0.5, 0, ""), atcReply!, ttsAudioPath));
+            // Build extended timeline DTOs
+            var timelineDtos = turnResponse.Timeline.Select(t => new TransmissionDto(
+                t.Source,
+                t.Text,
+                t.FreqMhz ?? 0,
+                t.Tone ?? "professional",
+                t.Persona ?? "normal",
+                t.Attributes ?? new Dictionary<string, string>()
+            )).ToList();
+
+            var safeVerdict = verdict ?? new InstructorVerdict(
+                new List<string>(), new List<string>(), null, 0.5, 0, "");
+
+            return Ok(new TurnResult(
+                transcript,
+                safeVerdict,
+                atcReply,
+                ttsAudioPath,
+                turnResponse.PhaseId,
+                turnResponse.NextPhaseId,
+                timelineDtos,
+                turnResponse.TurnState
+            ));
         }
         catch (Exception ex)
         {
@@ -462,7 +504,7 @@ public class SimulationController : ControllerBase
     private async Task SaveTurnWorkbook(
         Session session, string transcript, InstructorVerdict? verdict, AtcReply? atcResponse, 
         string? ttsAudioPath, string? userAudioPath, string startedUtc, int sttMs, 
-        int turnServiceMs, int ttsMs, int totalMs, bool blocked, JsonElement updatedState,
+        int turnServiceMs, int ttsMs, int totalMs, bool blocked, JsonElement updatedState, PilotSim.Core.TurnState turnState,
         CancellationToken cancellationToken)
     {
         var turnIndex = session.Turns.Count;
@@ -479,12 +521,14 @@ public class SimulationController : ControllerBase
             Verdict = verdict?.BlockReason,
             StartedUtc = startedUtc,
             SttMs = sttMs,
-            InstructorMs = turnServiceMs, // TurnService includes instructor + ATC time
-            AtcMs = 0, // Already included in TurnService time
+            InstructorMs = turnServiceMs,
+            AtcMs = 0,
             TtsMs = ttsMs,
             TotalMs = totalMs,
             ScoreDelta = verdict?.ScoreDelta ?? 0,
-            Blocked = blocked
+            Blocked = blocked,
+            TurnStateJson = JsonSerializer.Serialize(turnState),
+            StateJson = JsonSerializer.Serialize(updatedState)
         };
 
         _context.Turns.Add(turn);
@@ -774,5 +818,46 @@ public class SimulationController : ControllerBase
         }
         
         return false;
+    }
+
+    [HttpGet("session/{sessionId}/state")]
+    public async Task<ActionResult<object>> GetLiveSessionStateAsync(int sessionId, CancellationToken cancellationToken = default)
+    {
+        var session = await _context.Sessions
+            .Include(s => s.Turns)
+            .Include(s => s.Scenario)
+            .FirstOrDefaultAsync(s => s.Id == sessionId, cancellationToken);
+        if (session == null) return NotFound();
+
+        var lastTurn = session.Turns.OrderBy(t => t.Idx).LastOrDefault();
+        PilotSim.Core.TurnState? lastStateObj = null;
+        if (lastTurn?.TurnStateJson != null)
+        {
+            try { lastStateObj = JsonSerializer.Deserialize<PilotSim.Core.TurnState>(lastTurn.TurnStateJson); } catch { }
+        }
+        string? phaseId = null;
+        try
+        {
+            if (lastTurn?.StateJson != null)
+            {
+                using var doc = JsonDocument.Parse(lastTurn.StateJson);
+                if (doc.RootElement.TryGetProperty("phase", out var p)) phaseId = p.GetString();
+            }
+        }
+        catch { }
+
+        return Ok(new
+        {
+            session.Id,
+            session.ScoreTotal,
+            session.Difficulty,
+            session.Outcome,
+            TurnCount = session.Turns.Count,
+            PhaseId = phaseId ?? lastStateObj?.PhaseId,
+            State = lastTurn?.StateJson != null ? JsonSerializer.Deserialize<object>(lastTurn.StateJson) : null,
+            TurnState = lastStateObj,
+            LastTranscript = lastTurn?.UserTranscript,
+            LastAtc = lastTurn?.AtcJson != null ? JsonSerializer.Deserialize<AtcReply>(lastTurn.AtcJson) : null
+        });
     }
 }

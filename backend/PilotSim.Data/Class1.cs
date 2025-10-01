@@ -96,8 +96,7 @@ public class Turn
     public string? AtcJson { get; set; }
     public string? TtsAudioPath { get; set; }
     public string? Verdict { get; set; }
-    // Phase 1: Added detailed timing + scoring persistence
-    public string? StartedUtc { get; set; } // ISO8601 start time of processing
+    public string? StartedUtc { get; set; }
     public int? SttMs { get; set; }
     public int? InstructorMs { get; set; }
     public int? AtcMs { get; set; }
@@ -105,7 +104,9 @@ public class Turn
     public int? TotalMs { get; set; }
     public int? ScoreDelta { get; set; }
     public bool Blocked { get; set; }
-    
+    public string? TurnStateJson { get; set; } // serialized TurnState
+    public string? StateJson { get; set; }     // serialized updated workbook state after this turn
+
     public Session? Session { get; set; }
     public ICollection<VerdictDetail> VerdictDetails { get; set; } = new List<VerdictDetail>();
 }

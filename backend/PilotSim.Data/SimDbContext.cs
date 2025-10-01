@@ -127,6 +127,8 @@ public class SimDbContext : DbContext
             entity.Property(e => e.TotalMs).HasColumnName("total_ms");
             entity.Property(e => e.ScoreDelta).HasColumnName("score_delta");
             entity.Property(e => e.Blocked).HasColumnName("blocked").HasDefaultValue(false);
+            entity.Property(e => e.TurnStateJson).HasColumnName("turn_state_json");
+            entity.Property(e => e.StateJson).HasColumnName("state_json");
             
             entity.HasOne(e => e.Session)
                 .WithMany(s => s.Turns)
